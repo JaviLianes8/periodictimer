@@ -171,3 +171,12 @@ def test_stop_from_inside_the_callback_ends_after_that_call() -> None:
 
     _run(main)
     assert calls == [1]
+
+
+def test_name_reaches_the_task() -> None:
+    async def main() -> None:
+        async with AsyncPeriodicTimer(30.0, _noop, name="beat") as timer:
+            assert {task.get_name() for task in asyncio.all_tasks()} >= {"beat"}
+        assert not timer.is_running()
+
+    _run(main)
