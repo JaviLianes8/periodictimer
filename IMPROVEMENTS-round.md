@@ -7,11 +7,11 @@ Progress:
 - [x] `PeriodicTimer`: never early, clean lifecycle, context manager, errors never silent
 - [x] `AsyncPeriodicTimer` for asyncio
 - [x] Contracts: reference model, stress invariants, no leaked threads, typing, README examples, installed wheel e2e
-- [ ] Mutation run: every guard removed makes the suite fail
+- [x] Mutation run: every guard removed makes the suite fail
 - [x] Docs: README, CHANGELOG, docstrings, packaging metadata
 - [x] Gates: ruff format, ruff check, mypy --strict, pytest
 - [x] Independent review findings fixed with regression tests
-- [ ] Pull request opened, guard clean
+- [x] Pull request opened, guard clean
 
 ## Starting point
 
@@ -99,3 +99,45 @@ the callback runs.
 Left out on purpose: wall-clock alignment ("every minute on the minute"), which needs the
 system clock the design avoids; cron expressions and multi-job scheduling, which belong to
 a scheduler; restarting a stopped timer (make a new one, as with `threading.Thread`).
+
+## Verification
+
+- Gates on Python 3.14 (Windows, a fresh clone of the branch): `ruff format --check .`,
+  `ruff check .`, `mypy --strict src` and `mypy --strict src tests` exit 0; `pytest`
+  248 passed, 1 skipped (the wheel test, which then passed alone with
+  `PERIODICTIMER_E2E=1`, building the wheel and driving it from a fresh venv). The suite
+  also passes locally on Python 3.13.
+- Mutations: 89 single changes to the source, each run against the whole suite with no
+  bytecode writes, caches purged and a per-mutant timeout; the baseline was green before
+  and after. 82 made the suite fail and 2 made it hang (both kill the mutant: a context
+  manager that never stops, an async loop that ignores `stop`). The first pass left 11
+  survivors; tests now pin a bool `join` timeout, `stop()` winning over slots already past
+  due, a returned coroutine being closed, and `is_running` was simplified. The 5 left are
+  equivalent: the negative timeout clamp (threading and asyncio clamp too), and four
+  guards in `next_index` that give the same slot under exact arithmetic (the boundary
+  `>=` and the `max(following, ...)` floors), kept as defence against float rounding.
+
+## Review findings fixed
+
+- Under an eager task factory (3.12+) `start()` ran the first call before storing the
+  task, so the callback could start a second task, join returned True from inside it and
+  calls overlapped. The task now yields once before its first call.
+- An `async def` `on_error` was called and never awaited. It is refused at build, typed
+  out, and a handler that returns an awaitable stops the timer.
+- `stop()` plus an outside cancel lost the outside cancel; a sleep hook that swallowed
+  the stop cancel left a pending count. Both fixed with `uncancel()` bookkeeping.
+- Numbers too large for a float raised `OverflowError`; `rng=object()` failed only at
+  start; `immediate="no"` meant yes; a subnormal interval killed the worker. All refused or
+  handled at build, and the scheduler never overflows.
+- A failing `clock` or `waiter` in the thread timer only reached `threading.excepthook`;
+  `join()` now re-raises it, as the asyncio timer does.
+- A plain function given to `AsyncPeriodicTimer` is reported as a `TypeError`.
+- README claims narrowed (custom wait hooks, join before start, jitter near the interval),
+  a weak `join` assertion tightened, and inexact intervals covered by a property test.
+
+## Left uncovered
+
+- On Python 3.10 there is no `Task.uncancel`, so an outside cancel arriving together with
+  `stop()` is absorbed there.
+- A callback that never returns keeps `join()` waiting; there is no way to interrupt it.
+- The timers are not fork-aware: a thread timer has no worker in a forked child.
