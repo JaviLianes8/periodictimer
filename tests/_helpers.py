@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 
 class FakeClock:
@@ -42,7 +42,7 @@ def fake_waiter(
     return wait
 
 
-def fake_sleep(clock: FakeClock) -> Callable[[float], object]:
+def fake_sleep(clock: FakeClock) -> Callable[[float], Awaitable[None]]:
     """An asyncio sleep that jumps the clock and only yields to the loop once."""
 
     async def sleep(delay: float) -> None:

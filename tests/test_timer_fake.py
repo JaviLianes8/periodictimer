@@ -7,9 +7,9 @@ import threading
 from typing import Any
 
 import pytest
+from _helpers import FakeClock, fake_waiter
 
 from periodictimer import PeriodicTimer
-from _helpers import FakeClock, fake_waiter
 
 
 def _drive(count: int, work: Any = None, **options: Any) -> tuple[list[float], PeriodicTimer]:
@@ -23,7 +23,9 @@ def _drive(count: int, work: Any = None, **options: Any) -> tuple[list[float], P
             work(clock)
 
     waiter = options.pop("waiter", None) or fake_waiter(clock, lambda: len(times) >= count)
-    timer = PeriodicTimer(options.pop("interval", 2.0), record, clock=clock, waiter=waiter, **options)
+    timer = PeriodicTimer(
+        options.pop("interval", 2.0), record, clock=clock, waiter=waiter, **options
+    )
     timer.start()
     assert timer.join(10.0)
     return times, timer
@@ -120,9 +122,12 @@ def test_jitter_is_reproducible_with_a_seeded_rng() -> None:
 def test_waits_are_capped_at_the_threading_limit() -> None:
     clock = FakeClock(0.0)
     seen: list[float] = []
-    timer = PeriodicTimer(
-        1e300, lambda: None, clock=clock, waiter=lambda delay: seen.append(delay) or True
-    )
+
+    def waiter(delay: float) -> bool:
+        seen.append(delay)
+        return True
+
+    timer = PeriodicTimer(1e300, lambda: None, clock=clock, waiter=waiter)
     timer.start()
     assert timer.join(5.0)
     assert seen == [threading.TIMEOUT_MAX]
