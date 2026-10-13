@@ -1,9 +1,10 @@
-"""Drift-free repeating timer that runs a callback on a background thread."""
+"""Drift-free repeating timers for threads and asyncio."""
 
 from __future__ import annotations
 
+from ._atimer import AsyncPeriodicTimer
 from ._timer import PeriodicTimer
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
-__all__ = ["PeriodicTimer"]
+__all__ = ["AsyncPeriodicTimer", "PeriodicTimer"]

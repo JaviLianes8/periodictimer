@@ -1,14 +1,11 @@
-"""Pure tick-scheduling math for the periodic timer, with no threads or clocks."""
+"""Pure tick-scheduling math for the timers, with no threads, loops or real clocks."""
 
 from __future__ import annotations
 
-from math import floor
-from typing import Literal
+from collections.abc import Callable
+from math import ceil, floor, isfinite
 
-Policy = Literal["skip", "burst"]
-
-SKIP: Policy = "skip"
-BURST: Policy = "burst"
+from ._options import BURST, FIXED_DELAY, SKIP, Mode, Policy
 
 
 def first_index(immediate: bool) -> int:
@@ -24,12 +21,62 @@ def target_time(epoch: float, interval: float, index: int) -> float:
 def next_index(epoch: float, interval: float, index: int, now: float, policy: Policy) -> int:
     """Index of the tick after the one just fired, applying the missed-tick policy.
 
-    ``burst`` always steps to the very next slot, so a slow callback leaves past-due
-    targets that fire back to back until the schedule catches up. ``skip`` jumps straight
-    to the next slot that is still in the future, coalescing every missed tick into one.
+    A slot is missed when its target is already in the past at ``now``. ``burst`` steps
+    to the very next slot, so past-due slots fire back to back. ``skip`` drops the missed
+    slots and waits for the first one not yet past. ``coalesce`` keeps only the latest slot
+    due by ``now``, which then fires at once, late, standing in for all of them.
     """
     following = index + 1
-    if policy == BURST:
+    if policy == BURST or target_time(epoch, interval, following) >= now:
         return following
-    behind = floor((now - epoch) / interval) + 1
-    return max(following, behind)
+    elapsed = (now - epoch) / interval
+    if not isfinite(elapsed):
+        # A subnormal interval overflows the slot count; stepping on is the only safe move.
+        return following
+    if policy == SKIP:
+        return max(following, ceil(elapsed))
+    return max(following, floor(elapsed))
+
+
+class Schedule:
+    """The state of one timer's schedule: the next due time and the counters."""
+
+    def __init__(
+        self,
+        epoch: float,
+        interval: float,
+        *,
+        immediate: bool,
+        policy: Policy,
+        mode: Mode,
+        jitter: float,
+        uniform: Callable[[float, float], float],
+    ) -> None:
+        self.epoch = epoch
+        self.interval = interval
+        self.policy = policy
+        self.mode = mode
+        self.jitter = jitter
+        self._uniform = uniform
+        self.index = first_index(immediate)
+        self.calls = 0
+        self.missed = 0
+        self.due = self._offset(target_time(epoch, interval, self.index))
+
+    def _offset(self, base: float) -> float:
+        # Jitter moves one call, never the slots, so it cannot accumulate into drift.
+        if self.jitter == 0:
+            return base
+        return base + self._uniform(0.0, self.jitter)
+
+    def fired(self, now: float) -> None:
+        """Record a finished call that ended at ``now`` and work out the next due time."""
+        self.calls += 1
+        if self.mode == FIXED_DELAY:
+            self.index += 1
+            self.due = self._offset(now + self.interval)
+            return
+        nxt = next_index(self.epoch, self.interval, self.index, now, self.policy)
+        self.missed += nxt - self.index - 1
+        self.index = nxt
+        self.due = self._offset(target_time(self.epoch, self.interval, nxt))
