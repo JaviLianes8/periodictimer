@@ -2,15 +2,15 @@
 
 Progress:
 - [x] Brainstorm ranked improvements (this file)
-- [ ] Strict options: interval, jitter, policy and mode validated; huge intervals safe
-- [ ] Scheduler core: fixed rate and fixed delay, skip, coalesce and burst, jitter, counters
-- [ ] `PeriodicTimer`: never early, clean lifecycle, context manager, errors never silent
-- [ ] `AsyncPeriodicTimer` for asyncio
-- [ ] Contracts: reference model, stress invariants, no leaked threads, typing, README examples, installed wheel e2e
+- [x] Strict options: interval, jitter, policy and mode validated; huge intervals safe
+- [x] Scheduler core: fixed rate and fixed delay, skip, coalesce and burst, jitter, counters
+- [x] `PeriodicTimer`: never early, clean lifecycle, context manager, errors never silent
+- [x] `AsyncPeriodicTimer` for asyncio
+- [x] Contracts: reference model, stress invariants, no leaked threads, typing, README examples, installed wheel e2e
 - [ ] Mutation run: every guard removed makes the suite fail
-- [ ] Docs: README, CHANGELOG, docstrings, packaging metadata
-- [ ] Gates: ruff format, ruff check, mypy --strict, pytest
-- [ ] Independent review findings fixed with regression tests
+- [x] Docs: README, CHANGELOG, docstrings, packaging metadata
+- [x] Gates: ruff format, ruff check, mypy --strict, pytest
+- [x] Independent review findings fixed with regression tests
 - [ ] Pull request opened, guard clean
 
 ## Starting point

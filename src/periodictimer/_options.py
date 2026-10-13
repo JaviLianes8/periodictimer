@@ -24,7 +24,10 @@ def _real(value: object, name: str) -> float:
     # bool is an int subclass, and True as a period of one second is a bug, not a choice.
     if isinstance(value, bool) or not isinstance(value, (numbers.Real, Decimal)):
         raise TypeError(f"{name} must be a real number, got {type(value).__name__}")
-    result = float(value)
+    try:
+        result = float(value)
+    except OverflowError:
+        raise ValueError(f"{name} must be finite, got a value too large for a float") from None
     if not math.isfinite(result):
         raise ValueError(f"{name} must be finite, got {result!r}")
     return result
@@ -66,3 +69,16 @@ def check_callable(value: object, name: str) -> None:
     """Refuse a callback or handler that cannot be called."""
     if not callable(value):
         raise TypeError(f"{name} must be callable, got {type(value).__name__}")
+
+
+def check_flag(value: object, name: str) -> bool:
+    """A real bool: a string such as "no" is truthy and would silently mean yes."""
+    if not isinstance(value, bool):
+        raise TypeError(f"{name} must be a bool, got {type(value).__name__}")
+    return value
+
+
+def check_rng(value: object) -> None:
+    """Refuse an rng without the ``uniform`` method jitter draws from."""
+    if not callable(getattr(value, "uniform", None)):
+        raise TypeError(f"rng must have a uniform(a, b) method, got {type(value).__name__}")

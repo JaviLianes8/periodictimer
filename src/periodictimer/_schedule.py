@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from math import ceil, floor
+from math import ceil, floor, isfinite
 
 from ._options import BURST, FIXED_DELAY, SKIP, Mode, Policy
 
@@ -29,9 +29,13 @@ def next_index(epoch: float, interval: float, index: int, now: float, policy: Po
     following = index + 1
     if policy == BURST or target_time(epoch, interval, following) >= now:
         return following
+    elapsed = (now - epoch) / interval
+    if not isfinite(elapsed):
+        # A subnormal interval overflows the slot count; stepping on is the only safe move.
+        return following
     if policy == SKIP:
-        return max(following, ceil((now - epoch) / interval))
-    return max(following, floor((now - epoch) / interval))
+        return max(following, ceil(elapsed))
+    return max(following, floor(elapsed))
 
 
 class Schedule:

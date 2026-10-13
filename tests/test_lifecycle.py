@@ -126,13 +126,13 @@ def test_daemon_flag_reaches_the_thread() -> None:
         assert not timer.is_running()
 
 
-@pytest.mark.parametrize("timeout", [math.inf, 1e300, -5.0, 0])
+@pytest.mark.parametrize("timeout", [math.inf, 1e300, 10**400, -5.0, 0])
 def test_join_accepts_any_non_nan_timeout(timeout: float) -> None:
     timer = PeriodicTimer(30.0, lambda: None)
     timer.start()
     timer.stop()
-    assert timer.join(timeout) in (True, False)
     assert timer.join(5.0)
+    assert timer.join(timeout) is True
 
 
 @pytest.mark.parametrize(("timeout", "error"), [(math.nan, ValueError), ("1", TypeError)])

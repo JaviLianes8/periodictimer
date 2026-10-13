@@ -10,7 +10,7 @@ from collections.abc import Callable
 from types import TracebackType
 
 from ._base import TimerBase
-from ._options import FIXED_RATE, SKIP, Mode, Policy
+from ._options import FIXED_RATE, SKIP, Mode, Policy, check_flag
 from ._report import ErrorHandler, handle_failure
 from ._timeout import check_timeout
 
@@ -73,7 +73,10 @@ class PeriodicTimer(TimerBase):
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._waiter: Waiter = waiter if waiter is not None else self._stop.wait
-        self._thread = threading.Thread(target=self._run, name=name, daemon=daemon)
+        self._thread = threading.Thread(
+            target=self._run, name=name, daemon=check_flag(daemon, "daemon")
+        )
+        self._failure: Exception | None = None
 
     def is_running(self) -> bool:
         """True while the worker thread is alive."""
@@ -103,7 +106,8 @@ class PeriodicTimer(TimerBase):
     def join(self, timeout: float | None = None) -> bool:
         """Wait up to ``timeout`` seconds for the worker to end; True when it has ended.
 
-        Returns True at once for a timer that never started. Raises RuntimeError when
+        Returns True at once for a timer that never started. Re-raises an error that
+        ended the worker (a failing ``clock`` or ``waiter``), and raises RuntimeError when
         called from the callback itself, which would wait forever.
         """
         limit = check_timeout(timeout)
@@ -114,7 +118,11 @@ class PeriodicTimer(TimerBase):
         if not started:
             return True
         self._thread.join(limit)
-        return not self._thread.is_alive()
+        if self._thread.is_alive():
+            return False
+        if self._failure is not None:
+            raise self._failure
+        return True
 
     def __enter__(self) -> PeriodicTimer:
         self.start()
@@ -130,6 +138,13 @@ class PeriodicTimer(TimerBase):
         self.join()
 
     def _run(self) -> None:
+        try:
+            self._loop()
+        except Exception as exc:  # a failing clock or waiter: kept for join to raise
+            self._failure = exc
+            self._stop.set()
+
+    def _loop(self) -> None:
         schedule = self._schedule
         assert schedule is not None
         while self._wait_until(schedule.due):

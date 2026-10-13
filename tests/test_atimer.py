@@ -100,22 +100,28 @@ def test_an_early_sleep_never_fires_before_the_slot() -> None:
     assert times[1] >= 2.0
 
 
-def test_plain_functions_are_accepted() -> None:
-    calls: list[int] = []
+def test_a_plain_function_is_reported_instead_of_silently_run() -> None:
+    errors: list[Exception] = []
 
-    async def main() -> None:
+    def plain() -> None:
+        return None
+
+    async def main() -> AsyncPeriodicTimer:
         clock = FakeClock()
-
-        def plain() -> None:
-            calls.append(1)
-
-        timer = AsyncPeriodicTimer(1.0, plain, clock=clock, sleep=fake_sleep(clock))  # type: ignore[arg-type]
+        timer = AsyncPeriodicTimer(
+            1.0,
+            plain,  # type: ignore[arg-type]
+            clock=clock,
+            sleep=fake_sleep(clock),
+            on_error=errors.append,
+        )
         async with timer:
-            while len(calls) < 3:
+            while len(errors) < 2:
                 await asyncio.sleep(0)
+        return timer
 
     asyncio.run(main())
-    assert len(calls) >= 3
+    assert all(isinstance(e, TypeError) and "PeriodicTimer" in str(e) for e in errors)
 
 
 def test_uses_the_loop_clock_by_default() -> None:

@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import inspect
 import random
 
 from ._options import (
     Mode,
     Policy,
     check_callable,
+    check_flag,
     check_interval,
     check_jitter,
     check_mode,
     check_policy,
+    check_rng,
 )
 from ._report import ErrorHandler
 from ._schedule import Schedule
@@ -41,7 +44,11 @@ class TimerBase:
         for label, hook in {"on_error": on_error, **hooks}.items():
             if hook is not None:
                 check_callable(hook, label)
-        self._immediate = bool(immediate)
+        if inspect.iscoroutinefunction(on_error):
+            raise TypeError("on_error must be a plain function; it is called, never awaited")
+        if rng is not None:
+            check_rng(rng)
+        self._immediate = check_flag(immediate, "immediate")
         self._rng = rng if rng is not None else random.Random()
         self._on_error = on_error
         self._label = getattr(fn, "__qualname__", type(fn).__name__)

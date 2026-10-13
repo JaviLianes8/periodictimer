@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 from collections.abc import Callable
 
 logger = logging.getLogger("periodictimer")
 
-ErrorHandler = Callable[[Exception], object]
+ErrorHandler = Callable[[Exception], None]
 
 
 def handle_failure(owner: object, exc: Exception, on_error: ErrorHandler | None) -> bool:
@@ -21,7 +22,11 @@ def handle_failure(owner: object, exc: Exception, on_error: ErrorHandler | None)
         logger.error("callback of %r raised", owner, exc_info=exc)
         return True
     try:
-        on_error(exc)
+        result = on_error(exc)
+        if inspect.isawaitable(result):
+            if inspect.iscoroutine(result):
+                result.close()
+            raise TypeError("on_error returned an awaitable, which is never awaited")
     except Exception as handler_exc:
         logger.error("on_error of %r raised, stopping the timer", owner, exc_info=handler_exc)
         return False

@@ -27,12 +27,18 @@ All notable changes to this project are documented here. The format follows
 - `epoch` is set by `start()`, so it is known as soon as `start()` returns.
 - `skip` no longer drops a slot that is due exactly when the previous call ends.
 - `join()` before `start()` returns `True`; `join()` from the callback raises a clear
-  `RuntimeError`; `start()` after `stop()` raises.
+  `RuntimeError`; `start()` after `stop()` raises. `join()` re-raises an error that ended
+  the worker, such as a failing `clock`, on both timers.
+- `immediate` and `daemon` must be real bools; `rng` must have a `uniform` method; an
+  `async def` `on_error` is refused, and a handler that returns an awaitable stops the
+  timer instead of being silently dropped.
 
 ### Fixed
 
 - A NaN interval made the worker call the callback in a busy loop; NaN, infinite and
-  `bool` intervals are now refused, as are bad jitter, policy and mode values.
+  `bool` intervals are now refused, as are bad jitter, policy and mode values. Numbers too
+  large for a float raise `ValueError`, and a subnormal interval no longer overflows the
+  slot count.
 - An interval above `threading.TIMEOUT_MAX` killed the worker with `OverflowError`; waits
   are now capped.
 - A wait that woke up early could start a call before its slot; the clock is now read

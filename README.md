@@ -97,7 +97,9 @@ for policy in ("skip", "coalesce", "burst"):
 rate, for work that must rest between runs. `jitter` delays each call by a random amount
 between zero and that many seconds, so many processes started together do not all hit a
 server at the same instant; the slots themselves never move. Pass `rng=random.Random(seed)`
-for a reproducible sequence.
+for a reproducible sequence. Keep jitter well below the interval with `skip` or
+`coalesce`: a call delayed by nearly a whole interval can end after the next slot, which
+then counts as missed.
 
 ```python
 from periodictimer import PeriodicTimer
@@ -116,7 +118,8 @@ print(timer)
 An exception from the callback never stops the timer. It goes to `on_error` when given;
 without a handler it is logged on the `periodictimer` logger, so a failure is never
 silent. To give up, call `stop()` from the handler, or raise from it: an exception raised
-by `on_error` is logged and stops the timer.
+by `on_error` is logged and stops the timer. `on_error` is a plain function on both
+timers; an `async def` handler is refused, since it would never be awaited.
 
 ```python
 from periodictimer import PeriodicTimer
@@ -146,7 +149,9 @@ timer.join()
 ### asyncio
 
 `AsyncPeriodicTimer` takes the same options and awaits an async callback in one task,
-scheduled on the loop's own clock:
+scheduled on the loop's own clock. A callback that returns a plain value instead of an
+awaitable is reported as a `TypeError`, like any other failure: use `PeriodicTimer` for
+blocking work, which would stall the loop.
 
 ```python
 import asyncio
@@ -184,11 +189,12 @@ use `loop.call_soon_threadsafe(timer.stop)`.
 Both timers take `interval` (seconds, a finite positive number) and the callback, then:
 
 - `immediate` (default `False`): first call at the epoch instead of one interval later.
+  It must be a real `bool`, as must `daemon`.
 - `on_missed` (default `"skip"`): `"skip"`, `"coalesce"` or `"burst"`, see above.
 - `mode` (default `"fixed_rate"`): or `"fixed_delay"`.
 - `jitter` (default `0`): up to this many seconds of random delay per call, at most
   `interval`; `rng` is the `random.Random` it draws from.
-- `on_error`: called with each exception the callback raises.
+- `on_error`: a plain function called with each exception the callback raises.
 - `name`: the thread name, or the task name for the asyncio timer.
 - `clock`: the time source, `time.monotonic` for threads and `loop.time` for asyncio.
 - `daemon` (threads, default `True`): a daemon timer never keeps the program alive, but
@@ -203,8 +209,12 @@ worker.
 - No call starts before its slot: the clock is read again after every wake-up.
 - No drift: slot `n` is always `epoch + n * interval`, whatever the calls cost.
 - Calls never overlap: one worker waits for each call to return.
-- `stop()` interrupts a pending wait at once; a call already running finishes, and
-  `join()` waits for it. After `join()` returns `True` the callback never runs again.
+- `stop()` interrupts a pending wait at once (a custom `waiter` or `sleep` hook decides
+  that for itself); a call already running finishes, and `join()` waits for it. Once the
+  timer has started, after `join()` returns `True` the callback never runs again.
+- `join()` re-raises an error that ended the worker outside the callback, such as a
+  failing `clock`.
+- `start()` never runs the callback itself, even under an eager asyncio task factory.
 - `join()` from inside the callback raises `RuntimeError` instead of hanging.
 - A timer starts once; `start()` after `start()` or after `stop()` raises.
 - Intervals up to `1e300` seconds work: waits are capped below the platform limit.

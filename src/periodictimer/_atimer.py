@@ -62,11 +62,13 @@ class AsyncPeriodicTimer(TimerBase):
         self._task: asyncio.Task[None] | None = None
         self._stopping = False
         self._sleeping = False
-        self._cancelled = False
+        self._started = False
+        self._cancel_sent = False
+        self._cancel_pending = False
 
     def is_running(self) -> bool:
         """True while the timer's task has not finished."""
-        return self._task is not None and not self._task.done()
+        return self._started and (self._task is None or not self._task.done())
 
     def start(self) -> None:
         """Anchor the schedule and start the task on the running loop.
@@ -75,21 +77,22 @@ class AsyncPeriodicTimer(TimerBase):
         ``stop``, raises RuntimeError.
         """
         loop = asyncio.get_running_loop()
-        if self._task is not None:
+        if self._started:
             raise RuntimeError("timer already started")
         if self._stopping:
             raise RuntimeError("timer was stopped before it started")
         clock = self._clock if self._clock is not None else loop.time
         self._clock = clock
         self._schedule = self._new_schedule(clock())
+        self._started = True
         # The timer holds the task: the loop keeps only a weak reference to it.
         self._task = loop.create_task(self._run(), name=self._name)
 
     def stop(self) -> None:
         """Ask the task to finish and return at once, interrupting a pending sleep."""
         self._stopping = True
-        if self._task is not None and self._sleeping and not self._cancelled:
-            self._cancelled = True
+        if self._task is not None and self._sleeping and not self._cancel_sent:
+            self._cancel_sent = self._cancel_pending = True
             self._task.cancel()
 
     async def join(self, timeout: float | None = None) -> bool:
@@ -134,6 +137,9 @@ class AsyncPeriodicTimer(TimerBase):
         schedule = self._schedule
         clock = self._clock
         assert schedule is not None and clock is not None
+        # Yield once first, so no call runs inside start() even under an eager task
+        # factory, before start() has stored the task.
+        await asyncio.sleep(0)
         while await self._wait_until(schedule.due, clock):
             keep_going = await self._invoke()
             schedule.fired(clock())
@@ -150,23 +156,32 @@ class AsyncPeriodicTimer(TimerBase):
             try:
                 await self._sleep(delay)
             except asyncio.CancelledError:
-                if not self._cancelled:
-                    raise
-                # Our own cancellation from stop(): give it back so a TaskGroup or a
-                # timeout around this task does not count it.
-                task = asyncio.current_task()
-                if task is not None and hasattr(task, "uncancel"):
-                    task.uncancel()
+                if not self._cancel_pending or self._give_back_cancel():
+                    raise  # someone else cancelled the task too
                 return False
             finally:
                 self._sleeping = False
+            if self._cancel_pending:  # a sleep hook swallowed the cancel from stop()
+                self._give_back_cancel()
         return False
+
+    def _give_back_cancel(self) -> bool:
+        """Undo the cancel sent by stop(); True when another cancel is still pending.
+
+        Giving it back keeps a TaskGroup or a timeout around the task from counting it.
+        """
+        self._cancel_pending = False
+        task = asyncio.current_task()
+        if task is None or not hasattr(task, "uncancel"):
+            return False
+        return bool(task.uncancel() > 0)
 
     async def _invoke(self) -> bool:
         try:
             result = self._fn()
-            if inspect.isawaitable(result):
-                await result
+            if not inspect.isawaitable(result):
+                raise TypeError("fn returned a plain value; use PeriodicTimer for sync work")
+            await result
         except Exception as exc:  # the timer must survive any callback failure
             return handle_failure(self, exc, self._on_error)
         return True

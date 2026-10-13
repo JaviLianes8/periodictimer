@@ -26,6 +26,8 @@ PeriodicTimer(1.0, tick, mode="rate")
 AsyncPeriodicTimer(1.0, tick)
 PeriodicTimer(1.0, tick, 0.5)
 PeriodicTimer(1.0, tick, on_error=lambda: None)
+async def handler(exc: Exception) -> None: ...
+AsyncPeriodicTimer(1.0, atick, on_error=handler)
 """
 
 
@@ -56,7 +58,14 @@ def test_results_are_typed(mypy_output: str, line: int, expected: str) -> None:
 
 @pytest.mark.parametrize(
     ("line", "code"),
-    [(11, "arg-type"), (12, "arg-type"), (13, "arg-type"), (14, "call-arg"), (15, "arg-type")],
+    [
+        (11, "arg-type"),
+        (12, "arg-type"),
+        (13, "arg-type"),
+        (14, "call-arg"),
+        (15, "arg-type"),
+        (17, "arg-type"),
+    ],
 )
 def test_wrong_calls_are_rejected(mypy_output: str, line: int, code: str) -> None:
     assert re.search(rf"snippet\.py:{line}: error: .*\[{code}\]", mypy_output), mypy_output
