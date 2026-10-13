@@ -68,7 +68,7 @@ class AsyncPeriodicTimer(TimerBase):
 
     def is_running(self) -> bool:
         """True while the timer's task has not finished."""
-        return self._started and (self._task is None or not self._task.done())
+        return self._task is not None and not self._task.done()
 
     def start(self) -> None:
         """Anchor the schedule and start the task on the running loop.
