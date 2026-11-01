@@ -15,6 +15,7 @@ Progress:
 - [x] Mutation round: 18 faults, 18 killed (item 18)
 - [x] Final four gates (item 15): 319 tests pass with e2e and upgrade enabled
 - [x] QA round 1 fixes: all seven findings addressed; 481 tests pass
+- [x] QA round 2 fixes: C3 and E-02 addressed; 500 tests pass
 - [ ] Five QA lenses (item 19, separate stage)
 - [ ] Independent reviewer (item 16, separate stage)
 - [x] PR #3 opened from `release/1.0.0` to `main`
@@ -38,11 +39,11 @@ Progress:
 | 12. CHANGELOG | PASS | 1.0.0 dated 2026-11-01; all runtime changes listed |
 | 13. Metadata | PASS | 1.0.0, Production/Stable, Python classifiers, MIT, URLs, no runtime dependencies |
 | 14. Archives | PASS | Exact member lists, license and type marker; wheel rebuilt from sdist |
-| 15. Four gates | PASS | Each exits zero; QA round 1 suite 481 passed |
+| 15. Four gates | PASS | Each exits zero; QA round 2 suite 500 passed |
 | 16. Independent reviewer | PENDING | Separate stage |
 | 17. Merge and publication | PENDING | PR #3 open; merge and publication are separate |
-| 18. Mutation contracts | PASS | 18 preparation faults killed; QA lens e M17 now caught in 12 cases |
-| 19. Five QA lenses | PENDING | Round 1 findings fixed; independent re-verification pending |
+| 18. Mutation contracts | PASS | 18 preparation faults killed; lens e M17, N01 and N09 detected |
+| 19. Five QA lenses | PENDING | Round 2 findings fixed; independent re-verification pending |
 
 ## API and behavior
 
@@ -217,6 +218,47 @@ passed for 34 files. Pytest used the 300-second per-test timeout and scratch bas
 with wheel/archive checks, installed-wheel typing, the real 0.2.0 upgrade and fetched
 reference tests enabled. Other interpreter results above belong to preparation and
 were not repeated in this fix round.
+
+## QA round 2
+
+Reviewed base: `0b22e79ce40f971ca019037c4ba8c6c854743c80` on `release/1.0.0`.
+Fix commit: `f462acf5ce9487e2723a7f40a0e2fde7b9236085`
+(`harden option classification and pin conversion error types`).
+Both submitted findings are addressed. No finding is disputed. Independent lens
+re-verification remains pending.
+
+| Finding | Change | Contract evidence |
+| --- | --- | --- |
+| C3 | Classify string, numeric and boolean options using their actual types, without consulting instance-controlled `__class__` properties | `test_option_classification_ignores_instance_class_properties`: 13 cases across both timers, including interval, jitter, join timeout, mode, policy, immediate and thread daemon; exact error types, bounded messages and marker-free rendered tracebacks |
+| E-02 | Require exactly TypeError for numeric conversion TypeError failures and ValueError for other conversion failures | `test_numeric_conversion_errors_are_bounded`: int/float subclasses, both timers, interval/jitter/join timeout and four conversion exception classes |
+
+Before production changes, all 13 new C3 contracts failed with RuntimeError; the
+74 existing hostile-input cases passed with the stronger E-02 assertions. After the
+fix, all 13 pass without accessing the class property. Six additional acceptance
+cases preserve registered real-number support for both timers' three numeric options.
+Existing string-subclass, Decimal and Fraction contracts also pass. Public signatures
+and defaults are unchanged. CHANGELOG records the classification behavior change;
+E-02 requires no production exception-type change.
+
+The supplied lens c recheck and scheduling sweep and lens e independent exception-type
+tests pass against the fixed source: 65 passed. Evidence and isolated mutation copies
+are retained under the certification scratch directory's `fix-r2` folder.
+
+| Mutation | Original source | Mutated source | Detecting contract |
+| --- | --- | --- | --- |
+| Lens e N01: `_options._real` converts TypeError to ValueError | 48 passed | 8 failed, 40 passed, exit 1 | `test_numeric_conversion_errors_are_bounded`, interval and jitter TypeError cases |
+| Lens e N09: `_timeout.check_timeout` converts TypeError to ValueError | 48 passed | 4 failed, 44 passed, exit 1 | `test_numeric_conversion_errors_are_bounded`, timeout TypeError cases |
+
+Each mutation ran alone in a separate scratch source copy. Both were detected by
+wrong-exception-type assertions, not collection failures or timeouts. The repository
+source was never mutated.
+
+On 2026-11-01, CPython 3.14.6 on Windows passed each required gate with exit 0:
+`ruff format --check .` (41 files), `ruff check .`, `mypy --strict src` (9 modules),
+and `pytest` (500 passed, no skips). The additional `mypy --strict src tests` check
+passed for 34 files. Pytest used a 300-second per-test timeout and scratch basetemp,
+with wheel/archive checks, installed-wheel typing, the real 0.2.0 upgrade and fetched
+reference tests enabled. The interpreter matrix was not repeated in this fix round.
 
 ## Later stages
 
