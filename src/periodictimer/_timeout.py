@@ -17,11 +17,13 @@ def check_timeout(timeout: object) -> float | None:
     if timeout is None:
         return None
     if isinstance(timeout, bool) or not isinstance(timeout, (numbers.Real, Decimal)):
-        raise TypeError(f"timeout must be a real number or None, got {type(timeout).__name__}")
+        raise TypeError("timeout must be a real number or None")
     try:
         result = float(timeout)
     except OverflowError:
-        return None  # larger than any float: as good as forever
+        return 0.0 if timeout < 0 else None
+    except ValueError:
+        raise ValueError("timeout must not be NaN") from None
     if math.isnan(result):
         raise ValueError("timeout must not be NaN")
     if result == math.inf:

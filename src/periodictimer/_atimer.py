@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 import random
 from collections.abc import Awaitable, Callable
 from types import TracebackType
 
-from ._base import TimerBase
+from ._async_worker import AsyncWorker
 from ._options import FIXED_RATE, SKIP, Mode, Policy
-from ._report import ErrorHandler, handle_failure
+from ._report import ErrorHandler
 from ._timeout import check_timeout
 
 AsyncCallback = Callable[[], Awaitable[object]]
 Sleep = Callable[[float], Awaitable[object]]
 
 
-class AsyncPeriodicTimer(TimerBase):
+class AsyncPeriodicTimer(AsyncWorker):
     """Await ``fn()`` every ``interval`` seconds in one asyncio task, without drift.
 
     The asyncio twin of ``PeriodicTimer``, with the same options and guarantees. The
@@ -27,6 +26,17 @@ class AsyncPeriodicTimer(TimerBase):
     reach it with ``loop.call_soon_threadsafe(timer.stop)``.
 
     ``clock`` and ``sleep`` are hooks for tests that must not wait in real time.
+
+    >>> import asyncio
+    >>> async def example():
+    ...     async def tick():
+    ...         timer.stop()
+    ...     timer = AsyncPeriodicTimer(1, tick, immediate=True)
+    ...     async with timer:
+    ...         await timer.join()
+    ...     return timer.calls
+    >>> asyncio.run(example())
+    1
     """
 
     def __init__(
@@ -67,7 +77,11 @@ class AsyncPeriodicTimer(TimerBase):
         self._cancel_pending = False
 
     def is_running(self) -> bool:
-        """True while the timer's task has not finished."""
+        """True while the timer's task has not finished.
+
+        >>> AsyncPeriodicTimer(1, asyncio.sleep).is_running()
+        False
+        """
         return self._task is not None and not self._task.done()
 
     def start(self) -> None:
@@ -75,6 +89,12 @@ class AsyncPeriodicTimer(TimerBase):
 
         Must be called from a coroutine. A timer starts once: starting it again, or after
         ``stop``, raises RuntimeError.
+
+        >>> async def example():
+        ...     timer = AsyncPeriodicTimer(1, asyncio.sleep)
+        ...     timer.start()
+        ...     await timer.aclose()
+        >>> asyncio.run(example())
         """
         loop = asyncio.get_running_loop()
         if self._started:
@@ -89,7 +109,13 @@ class AsyncPeriodicTimer(TimerBase):
         self._task = loop.create_task(self._run(), name=self._name)
 
     def stop(self) -> None:
-        """Ask the task to finish and return at once, interrupting a pending sleep."""
+        """Ask the task to finish and return at once, interrupting a pending sleep.
+
+        >>> timer = AsyncPeriodicTimer(1, asyncio.sleep)
+        >>> timer.stop()
+        >>> timer.is_running()
+        False
+        """
         self._stopping = True
         if self._task is not None and self._sleeping and not self._cancel_sent:
             self._cancel_sent = self._cancel_pending = True
@@ -101,6 +127,9 @@ class AsyncPeriodicTimer(TimerBase):
         Returns True at once for a timer that never started, re-raises an error that
         ended the task (a failing ``clock`` or ``sleep``), and raises RuntimeError when
         awaited from the callback itself.
+
+        >>> asyncio.run(AsyncPeriodicTimer(1, asyncio.sleep).join())
+        True
         """
         limit = check_timeout(timeout)
         task = self._task
@@ -117,7 +146,10 @@ class AsyncPeriodicTimer(TimerBase):
         return True
 
     async def aclose(self) -> None:
-        """Stop the timer and wait for its task to end."""
+        """Stop the timer and wait for its task to end.
+
+        >>> asyncio.run(AsyncPeriodicTimer(1, asyncio.sleep).aclose())
+        """
         self.stop()
         await self.join()
 
@@ -132,56 +164,3 @@ class AsyncPeriodicTimer(TimerBase):
         tb: TracebackType | None,
     ) -> None:
         await self.aclose()
-
-    async def _run(self) -> None:
-        schedule = self._schedule
-        clock = self._clock
-        assert schedule is not None and clock is not None
-        # Yield once first, so no call runs inside start() even under an eager task
-        # factory, before start() has stored the task.
-        await asyncio.sleep(0)
-        while await self._wait_until(schedule.due, clock):
-            keep_going = await self._invoke()
-            schedule.fired(clock())
-            if not keep_going:
-                self._stopping = True
-                return
-
-    async def _wait_until(self, due: float, clock: Callable[[], float]) -> bool:
-        while not self._stopping:
-            delay = due - clock()
-            if delay <= 0:
-                return True
-            self._sleeping = True
-            try:
-                await self._sleep(delay)
-            except asyncio.CancelledError:
-                if not self._cancel_pending or self._give_back_cancel():
-                    raise  # someone else cancelled the task too
-                return False
-            finally:
-                self._sleeping = False
-            if self._cancel_pending:  # a sleep hook swallowed the cancel from stop()
-                self._give_back_cancel()
-        return False
-
-    def _give_back_cancel(self) -> bool:
-        """Undo the cancel sent by stop(); True when another cancel is still pending.
-
-        Giving it back keeps a TaskGroup or a timeout around the task from counting it.
-        """
-        self._cancel_pending = False
-        task = asyncio.current_task()
-        if task is None or not hasattr(task, "uncancel"):
-            return False
-        return bool(task.uncancel() > 0)
-
-    async def _invoke(self) -> bool:
-        try:
-            result = self._fn()
-            if not inspect.isawaitable(result):
-                raise TypeError("fn returned a plain value; use PeriodicTimer for sync work")
-            await result
-        except Exception as exc:  # the timer must survive any callback failure
-            return handle_failure(self, exc, self._on_error)
-        return True

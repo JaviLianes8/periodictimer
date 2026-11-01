@@ -6,6 +6,32 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-01
+
+### Stable
+
+- `PeriodicTimer` and `AsyncPeriodicTimer`, their constructor signatures, lifecycle
+  methods, read-only counters and scheduling policies are the stable public API.
+- Python 3.10 and newer, no runtime dependencies, and a shipped `py.typed` marker.
+
+### Fixed
+
+- A negative integer timeout too large for a float now means zero, like other negative
+  timeouts; in 0.2.0 it accidentally meant an unlimited wait.
+- `PeriodicTimer(clock=None)` raises `TypeError` at construction instead of failing
+  later in `start()`. The asyncio timer still accepts `None` for its default loop clock.
+- Signalling decimal NaNs now raise `ValueError` naming the invalid interval, jitter
+  or timeout instead of exposing the conversion error.
+
+### Changed
+
+- Option validation messages no longer echo invalid policy/mode values or type names.
+  This bounds diagnostic size and avoids disclosing caller input. Exception classes
+  are unchanged; callback and hook exceptions are still preserved.
+- Public class, method and property docstrings include executable examples. The GUIDE
+  describes lifecycle, numerical limits, error handling and upgrading from 0.2.0.
+- Source distributions contain only package sources, metadata, license and user docs.
+
 ## [0.2.0]
 
 ### Added

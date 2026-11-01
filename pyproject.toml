@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "periodictimer"
-version = "0.2.0"
+version = "1.0.0"
 description = "Drift-free repeating timers for threads and asyncio, with missed-tick policies, fixed delay and jitter"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,7 +16,7 @@ keywords = [
     "monotonic", "jitter", "repeating",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Framework :: AsyncIO",
@@ -32,18 +32,18 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["ruff", "mypy", "pytest", "build", "twine"]
+dev = ["ruff", "mypy", "pytest", "pytest-timeout", "build", "twine"]
 
 [project.urls]
 Homepage = "https://lianes8studio.com"
-Repository = "https://github.com/JaviLianes8/periodictimer"
+Source = "https://github.com/JaviLianes8/periodictimer"
 Issues = "https://github.com/JaviLianes8/periodictimer/issues"
 Changelog = "https://github.com/JaviLianes8/periodictimer/blob/main/CHANGELOG.md"
 LinkedIn = "https://www.linkedin.com/in/jlianes/"
 Funding = "https://buymeacoffee.com/jlianesglrs"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["IMPROVEMENTS-round.md"]
+include = ["/src", "/README.md", "/GUIDE.md", "/CHANGELOG.md", "/LICENSE", "/pyproject.toml"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/periodictimer"]
@@ -63,3 +63,4 @@ strict = true
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
+timeout = 300

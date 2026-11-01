@@ -1,5 +1,7 @@
 # periodictimer
 
+[![Lianes8 Certified](https://lianes8studio.com/certified/lianes8-certified-badge.svg)](https://lianes8studio.com/certified)
+
 Drift-free repeating timers for threads and asyncio: a callback every `interval` seconds,
 on a monotonic clock, with an explicit policy for ticks missed by a slow callback.
 
@@ -221,17 +223,25 @@ worker.
 
 ## Why
 
-`threading.Timer` is one-shot: to repeat it you reschedule after each call, which drifts,
-because every period silently absorbs the callback's own run time. Chaining
-`time.sleep(interval)` has the same flaw, and the error accumulates. `schedule` and
-`APScheduler` solve the general case but pull in a framework for what should be a few lines.
-`periodictimer` is the small, typed, zero-dependency middle ground: a repeating timer for
-threads or asyncio that schedules against a fixed monotonic epoch, with documented
-policies for missed ticks, fixed delay, jitter and failures.
+[`threading.Timer`](https://docs.python.org/3/library/threading.html#timer-objects)
+is one-shot. Rescheduling it after each call adds the callback duration to each period,
+as does a loop that calls `time.sleep(interval)` after doing its work. The standard
+library's [`sched`](https://docs.python.org/3/library/sched.html) supports absolute
+deadlines and can implement a fixed grid, but the caller must supply repetition,
+missed-tick policy and worker lifecycle. `periodictimer` supplies those pieces for
+threads and asyncio, with no runtime dependencies. It is not a calendar scheduler or
+a real-time system: operating-system delays and floating-point precision still apply.
+
+## Documentation
+
+The [GUIDE](https://github.com/JaviLianes8/periodictimer/blob/main/GUIDE.md) documents
+the stable API, timing limits, errors and the upgrade from 0.2.0. See the
+[CHANGELOG](https://github.com/JaviLianes8/periodictimer/blob/main/CHANGELOG.md) for
+release changes. This library has no command-line interface.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/JaviLianes8/periodictimer/blob/main/LICENSE).
 
 ## Links
 
