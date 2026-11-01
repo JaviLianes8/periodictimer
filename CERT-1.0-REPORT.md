@@ -16,7 +16,8 @@ Progress:
 - [x] Final four gates (item 15): 319 tests pass with e2e and upgrade enabled
 - [ ] Five QA lenses (item 19, separate stage)
 - [ ] Independent reviewer (item 16, separate stage)
-- [ ] PR ready; merge and publication (item 17, separate stage)
+- [x] PR #3 opened from `release/1.0.0` to `main`
+- [ ] Merge and publication (item 17, separate stage)
 
 ## Scorecard
 
@@ -38,7 +39,7 @@ Progress:
 | 14. Archives | PASS | Exact member lists, license and type marker; wheel rebuilt from sdist |
 | 15. Four gates | PASS | Each exits zero; final suite 319 passed |
 | 16. Independent reviewer | PENDING | Separate stage |
-| 17. Merge and publication | PENDING | Separate stage |
+| 17. Merge and publication | PENDING | PR #3 open; merge and publication are separate |
 | 18. Mutation contracts | PASS | 18 injected faults, all killed by assertions |
 | 19. Five QA lenses | PENDING | Separate stage; no verdict recorded |
 
@@ -174,3 +175,4 @@ archive inspection, the 31 doctest examples, installed-wheel typing and PyPI upg
 
 QA lenses a-e and the independent reviewer are pending. Merge and publication are
 reserved for the release stage. No verdict is claimed for those stages here.
+The preparation changes are available in [PR #3](https://github.com/JaviLianes8/periodictimer/pull/3).
