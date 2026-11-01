@@ -16,6 +16,19 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Both timers count completed invocations, including handled callback failures, before
+  reading the clock again, so a failing clock cannot lose a completed call.
+- Skip and coalesce select slots by their rounded grid timestamps, correcting quotient
+  rounding at exact boundaries and neighboring floats without walking missed backlogs.
+  Indices beyond float range have an infinite target instead of ending the worker
+  with `OverflowError` when advancing beyond the largest finite timestamp.
+- Policy and mode validation requires strings and ignores overridden subclass equality.
+  Nonstring objects can no longer impersonate a valid option through equality.
+- Numeric conversion failures for interval, jitter and join timeout produce bounded,
+  option-specific `TypeError` or `ValueError` messages with suppressed exception chains.
+  Timeout overflow sign checks receive the same protection.
+- The async `start()` docstring correctly requires a running event loop in the current
+  thread; ordinary event-loop callbacks may start a timer.
 - The asyncio worker yields to the event loop between callbacks, including overdue
   bursts and intervals below clock precision, so another task can request stop.
 - A negative integer timeout too large for a float now means zero, like other negative

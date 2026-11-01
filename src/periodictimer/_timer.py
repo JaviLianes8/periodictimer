@@ -163,7 +163,7 @@ class PeriodicTimer(TimerBase):
         assert schedule is not None
         while self._wait_until(schedule.due):
             keep_going = self._invoke()
-            schedule.fired(self._clock())
+            schedule.fired(self._clock)
             if not keep_going:
                 self._stop.set()
                 return

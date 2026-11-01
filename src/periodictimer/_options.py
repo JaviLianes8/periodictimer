@@ -28,7 +28,9 @@ def _real(value: object, name: str) -> float:
         result = float(value)
     except OverflowError:
         raise ValueError(f"{name} must be finite, got a value too large for a float") from None
-    except ValueError:
+    except TypeError:
+        raise TypeError(f"{name} must be a real number") from None
+    except Exception:
         raise ValueError(f"{name} must be a finite real number") from None
     if not math.isfinite(result):
         raise ValueError(f"{name} must be finite, got {result!r}")
@@ -54,7 +56,7 @@ def check_jitter(value: object, interval: float) -> float:
 def check_policy(value: object) -> Policy:
     """The missed-tick policy, refusing anything but the documented names."""
     for policy in POLICIES:
-        if value == policy:
+        if isinstance(value, str) and str.__eq__(value, policy):
             return policy
     raise ValueError(f"on_missed must be one of {', '.join(POLICIES)}")
 
@@ -62,7 +64,7 @@ def check_policy(value: object) -> Policy:
 def check_mode(value: object) -> Mode:
     """The scheduling mode, refusing anything but the documented names."""
     for mode in MODES:
-        if value == mode:
+        if isinstance(value, str) and str.__eq__(value, mode):
             return mode
     raise ValueError(f"mode must be one of {', '.join(MODES)}")
 

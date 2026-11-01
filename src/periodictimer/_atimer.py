@@ -87,8 +87,8 @@ class AsyncPeriodicTimer(AsyncWorker):
     def start(self) -> None:
         """Anchor the schedule and start the task on the running loop.
 
-        Must be called from a coroutine. A timer starts once: starting it again, or after
-        ``stop``, raises RuntimeError.
+        Requires a running event loop in the current thread. A timer starts once:
+        starting it again, or after ``stop``, raises RuntimeError.
 
         >>> async def example():
         ...     timer = AsyncPeriodicTimer(1, asyncio.sleep)

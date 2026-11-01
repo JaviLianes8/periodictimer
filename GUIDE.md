@@ -104,7 +104,10 @@ async sleep must yield to the loop, particularly during burst catch-up.
 
 Invalid types raise `TypeError`; invalid numeric values, policies and modes raise
 `ValueError`. Messages identify the option without echoing arbitrary input. A coroutine
-function cannot be a thread callback or an error handler. A returned coroutine is
+function cannot be a thread callback or an error handler. Policy and mode accept string
+subclasses by their underlying text, without invoking overridden equality. Numeric
+conversion failures are normalized to option-specific `TypeError` or `ValueError`
+messages without exposing the original exception chain. A returned coroutine is
 closed before reporting the mismatch. An async callback returning a non-awaitable is
 reported as `TypeError` through the same callback-error path.
 

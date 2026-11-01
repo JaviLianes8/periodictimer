@@ -21,8 +21,13 @@ def check_timeout(timeout: object) -> float | None:
     try:
         result = float(timeout)
     except OverflowError:
-        return 0.0 if timeout < 0 else None
-    except ValueError:
+        try:
+            return 0.0 if timeout < 0 else None
+        except Exception:
+            raise ValueError("timeout must be a real number or None") from None
+    except TypeError:
+        raise TypeError("timeout must be a real number or None") from None
+    except Exception:
         raise ValueError("timeout must not be NaN") from None
     if math.isnan(result):
         raise ValueError("timeout must not be NaN")

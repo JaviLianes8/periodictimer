@@ -30,7 +30,7 @@ class AsyncWorker(TimerBase):
         await asyncio.sleep(0)
         while await self._wait_until(schedule.due, clock):
             keep_going = await self._invoke()
-            schedule.fired(clock())
+            schedule.fired(clock)
             if not keep_going:
                 self._stopping = True
                 return
