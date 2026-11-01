@@ -14,6 +14,7 @@ Progress:
 - [x] Every available supported interpreter (item 10): 12 distinct builds
 - [x] Mutation round: 18 faults, 18 killed (item 18)
 - [x] Final four gates (item 15): 319 tests pass with e2e and upgrade enabled
+- [x] QA round 1 fixes: all seven findings addressed; 481 tests pass
 - [ ] Five QA lenses (item 19, separate stage)
 - [ ] Independent reviewer (item 16, separate stage)
 - [x] PR #3 opened from `release/1.0.0` to `main`
@@ -37,11 +38,11 @@ Progress:
 | 12. CHANGELOG | PASS | 1.0.0 dated 2026-11-01; all runtime changes listed |
 | 13. Metadata | PASS | 1.0.0, Production/Stable, Python classifiers, MIT, URLs, no runtime dependencies |
 | 14. Archives | PASS | Exact member lists, license and type marker; wheel rebuilt from sdist |
-| 15. Four gates | PASS | Each exits zero; final suite 319 passed |
+| 15. Four gates | PASS | Each exits zero; QA round 1 suite 481 passed |
 | 16. Independent reviewer | PENDING | Separate stage |
 | 17. Merge and publication | PENDING | PR #3 open; merge and publication are separate |
-| 18. Mutation contracts | PASS | 18 injected faults, all killed by assertions |
-| 19. Five QA lenses | PENDING | Separate stage; no verdict recorded |
+| 18. Mutation contracts | PASS | 18 preparation faults killed; QA lens e M17 now caught in 12 cases |
+| 19. Five QA lenses | PENDING | Round 1 findings fixed; independent re-verification pending |
 
 ## API and behavior
 
@@ -59,7 +60,8 @@ exceptions retain their identity. Logging caller errors can expose caller-provid
 as documented. No parser, codec or CLI is provided.
 
 The asyncio worker was separated into a private module to keep each source file at
-most 200 lines while adding examples. The fixed-grid and missed-slot math is unchanged.
+most 200 lines while adding examples. Preparation left the fixed-grid math unchanged;
+QA round 1 corrects rounded-boundary selection as described below.
 
 ## Ground truth
 
@@ -162,7 +164,7 @@ without these faults. No surviving mutation remains.
 | M17 | remove asyncio fairness yield | killed | `tests/test_async_fairness.py::test_every_callback_yields_to_allow_stop[1.0-fixed_rate-2.0]` |
 | M18 | restore incidental package export | killed | `tests/test_contract.py::test_all_lists_exactly_the_public_api` |
 
-## Final gates
+## Preparation final gates
 
 On 2026-11-01, each command exited 0: `ruff format --check .` (38 files), `ruff check .`,
 `mypy --strict src` (9 modules), `mypy --strict src tests` (31 files), and `pytest`
@@ -171,8 +173,53 @@ On 2026-11-01, each command exited 0: `ruff format --check .` (38 files), `ruff 
 and an explicit verification-directory basetemp. It includes strict twine checks,
 archive inspection, the 31 doctest examples, installed-wheel typing and PyPI upgrade.
 
+## QA round 1
+
+Reviewed base: `41906152d32c29ab709311e273ef9a38d103267e` on `release/1.0.0`.
+Fix commit: `4ef78250060acd263f50ca04f10f9c7c546550c1`
+(`fix timer boundary selection and validation contracts`).
+All seven submitted findings are addressed. Independent lens re-verification remains
+pending; the checks below do not replace those verdicts. No finding is disputed.
+
+| Findings | Change | Contract evidence |
+| --- | --- | --- |
+| A001, B-002 | Record completion before the post-callback clock read; preserve the clock error for join | `test_completion_contract.py`: both workers, successful and handled failing callbacks, exact error identity and final counters |
+| A002 | Async start docstring requires a running event loop in the current thread | The supplied `repro_start_doc.py` succeeds in a `call_soon` callback with no current task and reports one call |
+| B-001 | Correct estimated indices against rounded timestamps with exponential bracketing and binary search | `test_grid_contract.py`: both workers, exact/adjacent boundaries, small/large epochs, enormous plateaus and the largest finite timestamp |
+| C1 | Require strings, compare underlying text without overridden equality, return canonical policy/mode values | `test_hostile_contract.py`: hostile valid/invalid string subclasses and nonstring equality spoofing on both constructors |
+| C2 | Normalize numeric conversion errors and timeout overflow sign-check failures; suppress original exception chains | `test_hostile_contract.py`: int/float subclasses, four exception types, all three numeric options and both timers; bounded messages and rendered tracebacks |
+| E-01 | Pin rejection of integer immediate/daemon flags and acceptance of actual booleans | `test_integer_boolean_flags_are_rejected`: 0, 1, -1 and 2 on both immediate options and thread daemon |
+
+The initial 150 new contract cases ran before implementation changes: 54 failed and
+96 passed. After fixes, all 150 passed. Twelve additional large-grid cases exposed
+an upper-index overflow in both coalesce workers; those two failures were reproduced
+before making indices beyond float range yield an infinite target. All 162 added
+cases now pass. Public signatures and defaults are unchanged. CHANGELOG records every
+runtime change, and GUIDE documents subclass validation behavior.
+
+The supplied correctness tests and hostile-input tests were rerun against the working
+source: 936 passed. The supplied 945-case boundary sweep now has zero mismatches,
+including the 69 previously failing comparisons. Existing reviewer artifacts were
+preserved; new output is under the certification scratch directory's `fix-r1` folder.
+
+| Mutation | Original source | Mutated source | Detecting contract |
+| --- | --- | --- | --- |
+| Lens e M17: accept integers in `check_flag` | 12 passed | 12 assertion failures, exit 1 | `tests/test_hostile_contract.py::test_integer_boolean_flags_are_rejected` |
+
+M17 ran in a separate scratch source copy. Production flag validation needed no change.
+The mutation was detected by expected-TypeError assertions, not collection errors or
+timeouts. This identifier is from lens e's independent table, not preparation M17.
+
+On 2026-11-01, CPython 3.14.6 on Windows passed each required gate with exit 0:
+`ruff format --check .` (41 files), `ruff check .`, `mypy --strict src` (9 modules),
+and `pytest` (481 passed, no skips). The additional `mypy --strict src tests` check
+passed for 34 files. Pytest used the 300-second per-test timeout and scratch basetemp,
+with wheel/archive checks, installed-wheel typing, the real 0.2.0 upgrade and fetched
+reference tests enabled. Other interpreter results above belong to preparation and
+were not repeated in this fix round.
+
 ## Later stages
 
-QA lenses a-e and the independent reviewer are pending. Merge and publication are
-reserved for the release stage. No verdict is claimed for those stages here.
+QA lens re-verification and the independent reviewer are pending. Merge and publication
+are reserved for the release stage. No passing verdict is claimed for those stages here.
 The preparation changes are available in [PR #3](https://github.com/JaviLianes8/periodictimer/pull/3).
