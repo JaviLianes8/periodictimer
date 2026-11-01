@@ -84,6 +84,9 @@ Jitter adds a uniform delay in `[0, jitter]` to each deadline without moving the
 Zero jitter consumes no RNG draws. If jitter or callback duration exceeds the available
 time until the next slot, skip/coalesce may drop slots. Burst can run continuously when
 work cannot keep up; choose skip if dropping work is preferable to catch-up.
+The asyncio worker yields to other tasks between callbacks even when the next slot is
+already overdue. This permits external stop requests; a callback that itself blocks
+the event loop still prevents cooperative shutdown.
 
 The default clocks are `time.monotonic` and the running loop's `time`. Thread waits are
 capped at `threading.TIMEOUT_MAX`. Intervals up to `1e300` seconds are tested. Precision
@@ -121,10 +124,14 @@ timeout now polls instead of waiting forever. A thread timer with `clock=None` f
 at construction; an async timer still uses the loop clock for `None`. Signalling decimal
 NaNs produce option-specific `ValueError` messages. Invalid policy/mode values and type
 names are no longer echoed in errors. Do not parse exception message text.
+The incidental `annotations` package attribute is removed; it was not an export.
+The async timer now yields between callbacks, so other tasks can run during catch-up
+even when the callback never suspends. This may change interleaving with other tasks.
 
 ## Verification
 
-Install `.[dev]` and run `scripts/check.ps1`. `PERIODICTIMER_E2E=1` enables a built-wheel
+From a repository checkout, install `.[dev]` and run `scripts/check.ps1`.
+`PERIODICTIMER_E2E=1` enables a built-wheel
 consumer in a fresh virtual environment. `PERIODICTIMER_E2E_PYPI=1` additionally installs
 the published 0.2.0 release before upgrading that environment. No CLI is installed.
 `scripts/fetch_upstream.py DIRECTORY` fetches the pinned sources whose metadata is in

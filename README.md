@@ -185,6 +185,8 @@ asyncio.run(main())
 the task and `await aclose()` does both. `stop()` cancels the task only while it sleeps,
 never in the middle of the callback. The timer is not thread-safe: from another thread,
 use `loop.call_soon_threadsafe(timer.stop)`.
+The worker yields between callbacks, including overdue bursts, so other tasks can
+request stop even if the callback does not suspend.
 
 ## Options
 

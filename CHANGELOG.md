@@ -16,6 +16,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- The asyncio worker yields to the event loop between callbacks, including overdue
+  bursts and intervals below clock precision, so another task can request stop.
 - A negative integer timeout too large for a float now means zero, like other negative
   timeouts; in 0.2.0 it accidentally meant an unlimited wait.
 - `PeriodicTimer(clock=None)` raises `TypeError` at construction instead of failing
@@ -28,9 +30,12 @@ All notable changes to this project are documented here. The format follows
 - Option validation messages no longer echo invalid policy/mode values or type names.
   This bounds diagnostic size and avoids disclosing caller input. Exception classes
   are unchanged; callback and hook exceptions are still preserved.
+- The incidental `annotations` binding is removed from the package namespace; it
+  was never part of `__all__`.
 - Public class, method and property docstrings include executable examples. The GUIDE
   describes lifecycle, numerical limits, error handling and upgrading from 0.2.0.
-- Source distributions contain only package sources, metadata, license and user docs.
+- Source distributions contain package sources, metadata, license, user docs and
+  Hatch's required ignore file, without development tests or reports.
 
 ## [0.2.0]
 

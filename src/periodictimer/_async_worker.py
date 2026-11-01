@@ -34,6 +34,8 @@ class AsyncWorker(TimerBase):
             if not keep_going:
                 self._stopping = True
                 return
+            # Overdue bursts and subnormal intervals must not monopolize the loop.
+            await asyncio.sleep(0)
 
     async def _wait_until(self, due: float, clock: Callable[[], float]) -> bool:
         while not self._stopping:

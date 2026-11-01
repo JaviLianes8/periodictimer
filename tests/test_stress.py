@@ -95,6 +95,7 @@ def test_async_timers_keep_their_invariants(policy: Any) -> None:
     probes: list[_Probe] = []
 
     async def main() -> None:
+        before = asyncio.all_tasks()
         loop = asyncio.get_running_loop()
         for seed in range(32):
             opts = _options(seed)
@@ -116,8 +117,7 @@ def test_async_timers_keep_their_invariants(policy: Any) -> None:
         await asyncio.sleep(RUN_SECONDS)
         await asyncio.gather(*(probe.timer.aclose() for probe in probes))
         assert all(not probe.timer.is_running() for probe in probes)
-        others = asyncio.all_tasks() - {asyncio.current_task()}
-        assert others == set()
+        assert asyncio.all_tasks() <= before
 
     asyncio.run(asyncio.wait_for(main(), 30.0))
     for probe in probes:
