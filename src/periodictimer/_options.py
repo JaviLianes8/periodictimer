@@ -20,10 +20,19 @@ POLICIES: tuple[Policy, ...] = (SKIP, COALESCE, BURST)
 MODES: tuple[Mode, ...] = (FIXED_RATE, FIXED_DELAY)
 
 
-def _real(value: object, name: str) -> float:
+def _check_real_type(value: object, message: str) -> None:
     # bool is an int subclass, and True as a period of one second is a bug, not a choice.
-    if type(value) is bool or not issubclass(type(value), (numbers.Real, Decimal)):
-        raise TypeError(f"{name} must be a real number")
+    try:
+        valid = type(value) is not bool and issubclass(type(value), (numbers.Real, Decimal))
+    except Exception:
+        # Numeric ABC classification can invoke caller-controlled metaclass hooks.
+        raise TypeError(message) from None
+    if not valid:
+        raise TypeError(message)
+
+
+def _real(value: object, name: str) -> float:
+    _check_real_type(value, f"{name} must be a real number")
     try:
         result = float(cast("numbers.Real | Decimal", value))
     except OverflowError:

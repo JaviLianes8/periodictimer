@@ -8,6 +8,8 @@ import threading
 from decimal import Decimal
 from typing import cast
 
+from ._options import _check_real_type
+
 
 def check_timeout(timeout: object) -> float | None:
     """A timeout fit for a blocking call: None waits forever, negatives mean zero.
@@ -17,8 +19,7 @@ def check_timeout(timeout: object) -> float | None:
     """
     if timeout is None:
         return None
-    if type(timeout) is bool or not issubclass(type(timeout), (numbers.Real, Decimal)):
-        raise TypeError("timeout must be a real number or None")
+    _check_real_type(timeout, "timeout must be a real number or None")
     timeout = cast("numbers.Real | Decimal", timeout)
     try:
         result = float(timeout)

@@ -16,6 +16,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Numeric classification failures, including hostile metaclass hash hooks, now raise
+  bounded, option-specific `TypeError` messages with suppressed exception chains for
+  interval, jitter and join timeout on both timers.
 - String, numeric and boolean option validation uses actual types without invoking
   instance-controlled `__class__` properties. Both timers reject hostile objects with
   bounded, option-specific errors, including join timeouts; real subclasses and
