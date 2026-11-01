@@ -6,6 +6,7 @@ import math
 import numbers
 import threading
 from decimal import Decimal
+from typing import cast
 
 
 def check_timeout(timeout: object) -> float | None:
@@ -16,8 +17,9 @@ def check_timeout(timeout: object) -> float | None:
     """
     if timeout is None:
         return None
-    if isinstance(timeout, bool) or not isinstance(timeout, (numbers.Real, Decimal)):
+    if type(timeout) is bool or not issubclass(type(timeout), (numbers.Real, Decimal)):
         raise TypeError("timeout must be a real number or None")
+    timeout = cast("numbers.Real | Decimal", timeout)
     try:
         result = float(timeout)
     except OverflowError:

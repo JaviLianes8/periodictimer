@@ -16,6 +16,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- String, numeric and boolean option validation uses actual types without invoking
+  instance-controlled `__class__` properties. Both timers reject hostile objects with
+  bounded, option-specific errors, including join timeouts; real subclasses and
+  registered real-number types remain supported.
 - Both timers count completed invocations, including handled callback failures, before
   reading the clock again, so a failing clock cannot lose a completed call.
 - Skip and coalesce select slots by their rounded grid timestamps, correcting quotient

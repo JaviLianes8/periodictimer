@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import numbers
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, cast
 
 Policy = Literal["skip", "coalesce", "burst"]
 Mode = Literal["fixed_rate", "fixed_delay"]
@@ -22,10 +22,10 @@ MODES: tuple[Mode, ...] = (FIXED_RATE, FIXED_DELAY)
 
 def _real(value: object, name: str) -> float:
     # bool is an int subclass, and True as a period of one second is a bug, not a choice.
-    if isinstance(value, bool) or not isinstance(value, (numbers.Real, Decimal)):
+    if type(value) is bool or not issubclass(type(value), (numbers.Real, Decimal)):
         raise TypeError(f"{name} must be a real number")
     try:
-        result = float(value)
+        result = float(cast("numbers.Real | Decimal", value))
     except OverflowError:
         raise ValueError(f"{name} must be finite, got a value too large for a float") from None
     except TypeError:
@@ -56,7 +56,7 @@ def check_jitter(value: object, interval: float) -> float:
 def check_policy(value: object) -> Policy:
     """The missed-tick policy, refusing anything but the documented names."""
     for policy in POLICIES:
-        if isinstance(value, str) and str.__eq__(value, policy):
+        if issubclass(type(value), str) and str.__eq__(cast(str, value), policy):
             return policy
     raise ValueError(f"on_missed must be one of {', '.join(POLICIES)}")
 
@@ -64,7 +64,7 @@ def check_policy(value: object) -> Policy:
 def check_mode(value: object) -> Mode:
     """The scheduling mode, refusing anything but the documented names."""
     for mode in MODES:
-        if isinstance(value, str) and str.__eq__(value, mode):
+        if issubclass(type(value), str) and str.__eq__(cast(str, value), mode):
             return mode
     raise ValueError(f"mode must be one of {', '.join(MODES)}")
 
@@ -77,7 +77,7 @@ def check_callable(value: object, name: str) -> None:
 
 def check_flag(value: object, name: str) -> bool:
     """A real bool: a string such as "no" is truthy and would silently mean yes."""
-    if not isinstance(value, bool):
+    if type(value) is not bool:
         raise TypeError(f"{name} must be a bool")
     return value
 
