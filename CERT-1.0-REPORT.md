@@ -16,6 +16,7 @@ Progress:
 - [x] Final four gates (item 15): 319 tests pass with e2e and upgrade enabled
 - [x] QA round 1 fixes: all seven findings addressed; 481 tests pass
 - [x] QA round 2 fixes: C3 and E-02 addressed; 500 tests pass
+- [x] QA round 3 fixes: C4 and E-03 addressed; 508 tests pass
 - [ ] Five QA lenses (item 19, separate stage)
 - [ ] Independent reviewer (item 16, separate stage)
 - [x] PR #3 opened from `release/1.0.0` to `main`
@@ -39,11 +40,11 @@ Progress:
 | 12. CHANGELOG | PASS | 1.0.0 dated 2026-11-01; all runtime changes listed |
 | 13. Metadata | PASS | 1.0.0, Production/Stable, Python classifiers, MIT, URLs, no runtime dependencies |
 | 14. Archives | PASS | Exact member lists, license and type marker; wheel rebuilt from sdist |
-| 15. Four gates | PASS | Each exits zero; QA round 2 suite 500 passed |
+| 15. Four gates | PASS | Each exits zero; QA round 3 suite 508 passed |
 | 16. Independent reviewer | PENDING | Separate stage |
 | 17. Merge and publication | PENDING | PR #3 open; merge and publication are separate |
-| 18. Mutation contracts | PASS | 18 preparation faults killed; lens e M17, N01 and N09 detected |
-| 19. Five QA lenses | PENDING | Round 2 findings fixed; independent re-verification pending |
+| 18. Mutation contracts | PASS | 18 preparation faults killed; lens e M17, N01, N09 and round 3 M24 detected |
+| 19. Five QA lenses | PENDING | Round 3 findings fixed; independent re-verification pending |
 
 ## API and behavior
 
@@ -257,6 +258,45 @@ On 2026-11-01, CPython 3.14.6 on Windows passed each required gate with exit 0:
 `ruff format --check .` (41 files), `ruff check .`, `mypy --strict src` (9 modules),
 and `pytest` (500 passed, no skips). The additional `mypy --strict src tests` check
 passed for 34 files. Pytest used a 300-second per-test timeout and scratch basetemp,
+with wheel/archive checks, installed-wheel typing, the real 0.2.0 upgrade and fetched
+reference tests enabled. The interpreter matrix was not repeated in this fix round.
+
+## QA round 3
+
+Reviewed base: `877e26481cfec2ce24695e46e1d844b0348bc179` on `release/1.0.0`.
+Fix commit: `95e867a0b0871ae2e437cb4a9c8f1485794f1221`
+(`harden numeric classification and cover infinite joins`).
+Both submitted findings are addressed. No finding is disputed. Independent lens
+re-verification remains pending.
+
+| Finding | Change | Contract evidence |
+| --- | --- | --- |
+| C4 | Protect numeric ABC classification and normalize ordinary metaclass failures to bounded, option-specific TypeError with suppressed exception chains | `test_numeric_classification_errors_are_bounded`: hostile metaclass hash, interval/jitter/join timeout, both timers; exact error type, message bounds and marker-free rendered tracebacks |
+| E-03 | Require infinite joins to wait for active callback completion and return True | `test_join_infinity_contract.py`: event-controlled callbacks on both timers; thread join checks unlimited delegation before releasing the callback, async join stays pending until release |
+
+Before production changes, all six new C4 cases failed with RuntimeError and both
+infinity cases passed. After the fix, all eight pass; the combined new and existing
+hostile-input contracts pass 101 cases. Registered real numbers, Decimal, Fraction,
+numeric subclasses and existing conversion-error types remain covered. Public
+signatures and defaults are unchanged. CHANGELOG records the classification change.
+E-03 requires no production behavior change.
+
+The supplied lens c regression checks and 40-probe sweep, plus lens e's independent
+infinity probe, pass against the fixed source: 43 passed. Logs and the isolated
+mutation copy are under the certification scratch directory's `fix-r3` folder.
+
+| Mutation | Original source | Mutated source | Detecting contract |
+| --- | --- | --- | --- |
+| Lens e round 3 M24: positive-infinity timeout returns 0.0 instead of None | 2 passed | 2 assertion failures, exit 1 | `test_thread_infinite_join_waits_for_active_callback` and `test_async_infinite_join_waits_for_active_callback` |
+
+The exact mutation ran in a separate scratch source copy. Both failures are contract
+assertions, not collection failures or timeouts. The repository source was never
+mutated. Callback release and worker cleanup run even when assertions fail.
+
+On 2026-11-01, CPython 3.14.6 on Windows passed each required gate with exit 0:
+`ruff format --check .` (43 files), `ruff check .`, `mypy --strict src` (9 modules),
+and `pytest` (508 passed, no skips). The additional `mypy --strict src tests` check
+passed for 36 files. Pytest used a 300-second per-test timeout and scratch basetemp,
 with wheel/archive checks, installed-wheel typing, the real 0.2.0 upgrade and fetched
 reference tests enabled. The interpreter matrix was not repeated in this fix round.
 
