@@ -1,8 +1,9 @@
-"""Finite negative joins poll without waiting for active callbacks to finish."""
+"""Negative joins poll without waiting for active callbacks to finish."""
 
 from __future__ import annotations
 
 import asyncio
+import math
 import threading
 
 import pytest
@@ -10,7 +11,7 @@ import pytest
 from periodictimer import AsyncPeriodicTimer, PeriodicTimer
 
 
-@pytest.mark.parametrize("timeout", [-60.0, -0.25, -5e-324, -1e300])
+@pytest.mark.parametrize("timeout", [-60.0, -0.25, -5e-324, -1e300, -math.inf])
 def test_thread_negative_join_polls_active_callback(
     timeout: float, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -50,7 +51,7 @@ def test_thread_negative_join_polls_active_callback(
     assert timer.calls == 1
 
 
-@pytest.mark.parametrize("timeout", [-60.0, -0.25, -5e-324, -1e300])
+@pytest.mark.parametrize("timeout", [-60.0, -0.25, -5e-324, -1e300, -math.inf])
 def test_async_negative_join_polls_active_callback(
     timeout: float, monkeypatch: pytest.MonkeyPatch
 ) -> None:
