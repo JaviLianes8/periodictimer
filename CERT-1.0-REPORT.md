@@ -18,6 +18,7 @@ Progress:
 - [x] QA round 2 fixes: C3 and E-02 addressed; 500 tests pass
 - [x] QA round 3 fixes: C4 and E-03 addressed; 508 tests pass
 - [x] QA round 4 fixes: E-04 addressed; 516 tests pass
+- [x] QA round 5 fixes: E-05 and E-06 addressed; 520 tests pass
 - [ ] Five QA lenses (item 19, separate stage)
 - [ ] Independent reviewer (item 16, separate stage)
 - [x] PR #3 opened from `release/1.0.0` to `main`
@@ -41,11 +42,11 @@ Progress:
 | 12. CHANGELOG | PASS | 1.0.0 dated 2026-11-01; all runtime changes listed |
 | 13. Metadata | PASS | 1.0.0, Production/Stable, Python classifiers, MIT, URLs, no runtime dependencies |
 | 14. Archives | PASS | Exact member lists, license and type marker; wheel rebuilt from sdist |
-| 15. Four gates | PASS | Each exits zero; QA round 4 suite 516 passed |
+| 15. Four gates | PASS | Each exits zero; QA round 5 suite 520 passed |
 | 16. Independent reviewer | PENDING | Separate stage |
 | 17. Merge and publication | PENDING | PR #3 open; merge and publication are separate |
-| 18. Mutation contracts | PASS | 18 preparation faults killed; lens e M17, N01, N09 and rounds 3/4 M24 detected |
-| 19. Five QA lenses | PENDING | Round 4 finding fixed; independent re-verification pending |
+| 18. Mutation contracts | PASS | 18 preparation faults killed; lens e M17, N01, N09, rounds 3/4 M24 and round 5 N06/N08 detected |
+| 19. Five QA lenses | PENDING | Round 5 findings fixed; independent re-verification pending |
 
 ## API and behavior
 
@@ -336,6 +337,44 @@ On 2026-11-01, CPython 3.14.6 on Windows passed each required gate with exit 0:
 `ruff format --check .` (44 files), `ruff check .`, `mypy --strict src` (9 modules),
 and `pytest` (516 passed, no skips). The additional `mypy --strict src tests` check
 passed for 37 files. Pytest used a 300-second per-test timeout and scratch basetemp,
+with wheel/archive checks, installed-wheel typing, the real 0.2.0 upgrade and fetched
+reference tests enabled. The interpreter matrix was not repeated in this fix round.
+
+## QA round 5
+
+Reviewed base: `35cbf70981a8778aafbcb394d7739d071a3e0737` on `release/1.0.0`.
+Fix commit: `3be0877f291281c73e6307424da300161d59f3ab`
+(`pin negative infinity and fractional join contracts`).
+Both submitted findings are addressed. No finding is disputed. Independent lens
+re-verification remains pending.
+
+| Finding | Change | Contract evidence |
+| --- | --- | --- |
+| E-05 | Extend negative-timeout polling contracts to negative infinity | `test_join_negative_contract.py`: both timers delegate a zero timeout to the real wait, return False while the callback remains active and complete exactly one call after release |
+| E-06 | Pin fractional timeout preservation and completion within the timeout | `test_join_fractional_contract.py`: both timers pass 0.75 unchanged to the real blocking boundary, release the active callback there and return True with one completed call |
+
+All four added cases pass on the reviewed implementation. These are missing-contract
+findings, not runtime defects in the original source. Public API and behavior remain
+unchanged, so no CHANGELOG behavior entry is needed. Boundary assertions avoid
+elapsed-time thresholds and scheduling races that could hide timeout normalization
+errors. Callback release and worker cleanup run even if an assertion fails.
+
+| Mutation | Original source | Mutated source | Detecting contracts |
+| --- | --- | --- | --- |
+| Lens e round 5 N06: replace `if result == math.inf:` with `if math.isinf(result):` | 12 passed | 4 failed, 8 passed, exit 1 | Both negative-infinity contracts and both independent negative-infinity probes; eight finite-negative cases still pass |
+| Lens e round 5 N08: replace `max(result, 0.0)` with `math.floor(max(result, 0.0))` | 4 passed | 4 failed, exit 1 | Both fractional contracts and both independent fractional-completion probes |
+
+Each mutation ran alone in a separate scratch source copy. The four new contract
+failures are explicit timeout-value assertions, not collection errors or test timeouts.
+The reviewer's independent public-API probes additionally confirm waiting instead of
+polling for negative infinity and premature False results for fractional timeouts.
+The repository source was never mutated. Logs, the reproduction script and structured
+results are under the certification scratch directory's `fix-r5` folder.
+
+On 2026-11-02, CPython 3.14.6 on Windows passed each required gate with exit 0:
+`ruff format --check .` (45 files), `ruff check .`, `mypy --strict src` (9 modules),
+and `pytest` (520 passed, no skips). The additional `mypy --strict src tests` check
+passed for 38 files. Pytest used a 300-second per-test timeout and scratch basetemp,
 with wheel/archive checks, installed-wheel typing, the real 0.2.0 upgrade and fetched
 reference tests enabled. The interpreter matrix was not repeated in this fix round.
 
