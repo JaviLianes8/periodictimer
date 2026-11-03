@@ -45,10 +45,11 @@ timer has joined successfully no further callback runs. Joining from its own cal
 raises `RuntimeError`; call `stop()` there instead. The callback may run on the background
 thread before `start()` returns, so assign the timer before calling `start()`.
 
-`None` and positive infinity timeouts mean unlimited waiting; negative timeouts mean
-zero. Positive finite timeouts are capped at `threading.TIMEOUT_MAX`. A positive integer
-too large to convert to float also means unlimited waiting. Bool and nonnumbers raise
-`TypeError`; NaN raises `ValueError`. An async join timeout or cancellation does not
+`None` and positive infinity timeouts mean unlimited waiting; zero, negative timeouts
+and negative infinity mean zero (a poll). Positive finite timeouts keep their fractional
+part and are capped at `threading.TIMEOUT_MAX`. A positive value too large to convert to
+float also means unlimited waiting, and a negative one means zero. Bool and nonnumbers
+raise `TypeError`; NaN raises `ValueError`. An async join timeout or cancellation does not
 cancel the worker. External cancellation of the worker is treated as completion by
 join; `stop()` only withdraws its own pending cancellation where Python supports that.
 
@@ -107,7 +108,15 @@ Invalid types raise `TypeError`; invalid numeric values, policies and modes rais
 function cannot be a thread callback or an error handler. Policy and mode accept string
 subclasses by their underlying text, without invoking overridden equality. Numeric
 conversion failures are normalized to option-specific `TypeError` or `ValueError`
-messages without exposing the original exception chain. A returned coroutine is
+messages without exposing the original exception chain.
+
+`interval`, `jitter` and the join timeout share one conversion before each applies its
+own range rule. The value's type must be `numbers.Real` or `decimal.Decimal` and not
+`bool`, otherwise `TypeError`. It is converted once with `float()`: a conversion raising
+`TypeError` gives `TypeError`, an `OverflowError` gives an infinity with the value's sign,
+NaN and any other `Exception` give `ValueError`, and a `BaseException` that is not an
+`Exception` propagates unchanged. The flags `immediate` and `daemon` accept exactly
+`True` and `False`; anything else, including integers, is a `TypeError`. A returned coroutine is
 closed before reporting the mismatch. An async callback returning a non-awaitable is
 reported as `TypeError` through the same callback-error path.
 

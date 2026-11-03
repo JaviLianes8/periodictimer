@@ -5,17 +5,8 @@ from __future__ import annotations
 import inspect
 import random
 
-from ._options import (
-    Mode,
-    Policy,
-    check_callable,
-    check_flag,
-    check_interval,
-    check_jitter,
-    check_mode,
-    check_policy,
-    check_rng,
-)
+from ._numbers import check_flag, check_interval, check_jitter
+from ._options import Mode, Policy, check_callable, check_mode, check_policy, check_rng
 from ._report import ErrorHandler
 from ._schedule import Schedule
 

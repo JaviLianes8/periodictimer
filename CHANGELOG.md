@@ -50,6 +50,14 @@ All notable changes to this project are documented here. The format follows
 - Option validation messages no longer echo invalid policy/mode values or type names.
   This bounds diagnostic size and avoids disclosing caller input. Exception classes
   are unchanged; callback and hook exceptions are still preserved.
+- `interval`, `jitter` and the join timeout go through one shared numeric conversion,
+  then each applies only its own range rule. Any value whose float conversion overflows
+  now becomes an infinity of its sign for all three (a negative overflowing timeout polls,
+  a positive one waits without limit; interval and jitter refuse it with `ValueError`).
+  A `BaseException` that is not an `Exception`, raised while checking such a value's
+  sign, now propagates instead of being reported as `ValueError`. A zero or negative
+  timeout reaches the blocking call as `0.0`. The messages of these three options are
+  unified; exception classes are unchanged.
 - The incidental `annotations` binding is removed from the package namespace; it
   was never part of `__all__`.
 - Public class, method and property docstrings include executable examples. The GUIDE

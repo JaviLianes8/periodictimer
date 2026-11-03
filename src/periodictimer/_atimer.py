@@ -8,9 +8,9 @@ from collections.abc import Awaitable, Callable
 from types import TracebackType
 
 from ._async_worker import AsyncWorker
+from ._numbers import check_timeout
 from ._options import FIXED_RATE, SKIP, Mode, Policy
 from ._report import ErrorHandler
-from ._timeout import check_timeout
 
 AsyncCallback = Callable[[], Awaitable[object]]
 Sleep = Callable[[float], Awaitable[object]]

@@ -10,9 +10,9 @@ from collections.abc import Callable
 from types import TracebackType
 
 from ._base import TimerBase
-from ._options import FIXED_RATE, SKIP, Mode, Policy, check_callable, check_flag
+from ._numbers import check_flag, check_timeout
+from ._options import FIXED_RATE, SKIP, Mode, Policy, check_callable
 from ._report import ErrorHandler, handle_failure
-from ._timeout import check_timeout
 
 Callback = Callable[[], object]
 Waiter = Callable[[float], bool]
