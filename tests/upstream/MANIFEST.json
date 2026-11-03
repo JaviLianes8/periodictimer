@@ -1,0 +1,47 @@
+[
+  {
+    "file": "sched.py",
+    "url": "https://raw.githubusercontent.com/python/cpython/v3.14.6/Lib/sched.py",
+    "revision": "v3.14.6",
+    "date": "2026-11-01",
+    "size": 6351,
+    "sha256": "56588f00a68ef953014f41baf36e0dbb7ed7793f8aa883ebcb1a8bd3787c06a6",
+    "license": "PSF-2.0"
+  },
+  {
+    "file": "sched.rst",
+    "url": "https://raw.githubusercontent.com/python/cpython/v3.14.6/Doc/library/sched.rst",
+    "revision": "v3.14.6",
+    "date": "2026-11-01",
+    "size": 5343,
+    "sha256": "287999a926b49316f94b7260aa85feb4c6e5e9b3d962675953bd8667c21e2141",
+    "license": "PSF-2.0"
+  },
+  {
+    "file": "threading.rst",
+    "url": "https://raw.githubusercontent.com/python/cpython/v3.14.6/Doc/library/threading.rst",
+    "revision": "v3.14.6",
+    "date": "2026-11-01",
+    "size": 52597,
+    "sha256": "19b4cb7d9eb59874a76812e850e7f67b71c501d774c8af5c91139b4fc6713b92",
+    "license": "PSF-2.0"
+  },
+  {
+    "file": "time.rst",
+    "url": "https://raw.githubusercontent.com/python/cpython/v3.14.6/Doc/library/time.rst",
+    "revision": "v3.14.6",
+    "date": "2026-11-01",
+    "size": 41076,
+    "sha256": "1fbe44104593234c1cee6bfcca75e803c263f2389d66c2d736e174878bee05d2",
+    "license": "PSF-2.0"
+  },
+  {
+    "file": "asyncio-task.rst",
+    "url": "https://raw.githubusercontent.com/python/cpython/v3.14.6/Doc/library/asyncio-task.rst",
+    "revision": "v3.14.6",
+    "date": "2026-11-01",
+    "size": 51140,
+    "sha256": "9e9604ec551940201c3863cc7586c4481da6874ac370f299d5eb4f84c0591d3f",
+    "license": "PSF-2.0"
+  }
+]

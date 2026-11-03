@@ -5,6 +5,8 @@ from __future__ import annotations
 from ._atimer import AsyncPeriodicTimer
 from ._timer import PeriodicTimer
 
-__version__ = "0.2.0"
+del annotations
+
+__version__ = "1.0.0"
 
 __all__ = ["AsyncPeriodicTimer", "PeriodicTimer"]

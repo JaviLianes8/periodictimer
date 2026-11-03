@@ -6,6 +6,65 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-01
+
+### Stable
+
+- `PeriodicTimer` and `AsyncPeriodicTimer`, their constructor signatures, lifecycle
+  methods, read-only counters and scheduling policies are the stable public API.
+- Python 3.10 and newer, no runtime dependencies, and a shipped `py.typed` marker.
+
+### Fixed
+
+- Numeric classification failures, including hostile metaclass hash hooks, now raise
+  bounded, option-specific `TypeError` messages with suppressed exception chains for
+  interval, jitter and join timeout on both timers.
+- String, numeric and boolean option validation uses actual types without invoking
+  instance-controlled `__class__` properties. Both timers reject hostile objects with
+  bounded, option-specific errors, including join timeouts; real subclasses and
+  registered real-number types remain supported.
+- Both timers count completed invocations, including handled callback failures, before
+  reading the clock again, so a failing clock cannot lose a completed call.
+- Skip and coalesce select slots by their rounded grid timestamps, correcting quotient
+  rounding at exact boundaries and neighboring floats without walking missed backlogs.
+  Indices beyond float range have an infinite target instead of ending the worker
+  with `OverflowError` when advancing beyond the largest finite timestamp.
+- Policy and mode validation requires strings and ignores overridden subclass equality.
+  Nonstring objects can no longer impersonate a valid option through equality.
+- Numeric conversion failures for interval, jitter and join timeout produce bounded,
+  option-specific `TypeError` or `ValueError` messages with suppressed exception chains.
+  Timeout overflow sign checks receive the same protection.
+- The async `start()` docstring correctly requires a running event loop in the current
+  thread; ordinary event-loop callbacks may start a timer.
+- The asyncio worker yields to the event loop between callbacks, including overdue
+  bursts and intervals below clock precision, so another task can request stop.
+- A negative integer timeout too large for a float now means zero, like other negative
+  timeouts; in 0.2.0 it accidentally meant an unlimited wait.
+- `PeriodicTimer(clock=None)` raises `TypeError` at construction instead of failing
+  later in `start()`. The asyncio timer still accepts `None` for its default loop clock.
+- Signalling decimal NaNs now raise `ValueError` naming the invalid interval, jitter
+  or timeout instead of exposing the conversion error.
+
+### Changed
+
+- Option validation messages no longer echo invalid policy/mode values or type names.
+  This bounds diagnostic size and avoids disclosing caller input. Exception classes
+  are unchanged; callback and hook exceptions are still preserved.
+- `interval`, `jitter` and the join timeout go through one shared numeric conversion,
+  then each applies only its own range rule. Any value whose float conversion overflows
+  now becomes an infinity of its sign for all three (a negative overflowing timeout polls,
+  a positive one waits without limit; interval and jitter refuse it with `ValueError`).
+  A `BaseException` that is not an `Exception`, raised while checking such a value's
+  sign, now propagates instead of being reported as `ValueError`. A zero or negative
+  timeout reaches the blocking call as `0.0`. The messages of these three options are
+  unified; exception classes are unchanged.
+- The incidental `annotations` binding is removed from the package namespace; it
+  was never part of `__all__`.
+- Public class, method and property docstrings include executable examples. The GUIDE
+  describes lifecycle, numerical limits, error handling and upgrading from 0.2.0.
+- Source distributions contain package sources, metadata, license, user docs and
+  Hatch's required ignore file, without development tests or reports.
+
 ## [0.2.0]
 
 ### Added

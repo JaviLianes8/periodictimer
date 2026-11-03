@@ -10,9 +10,9 @@ from collections.abc import Callable
 from types import TracebackType
 
 from ._base import TimerBase
-from ._options import FIXED_RATE, SKIP, Mode, Policy, check_flag
+from ._numbers import check_flag, check_timeout
+from ._options import FIXED_RATE, SKIP, Mode, Policy, check_callable
 from ._report import ErrorHandler, handle_failure
-from ._timeout import check_timeout
 
 Callback = Callable[[], object]
 Waiter = Callable[[float], bool]
@@ -21,22 +21,18 @@ Waiter = Callable[[float], bool]
 class PeriodicTimer(TimerBase):
     """Run ``fn`` every ``interval`` seconds on one background thread, without drift.
 
-    Calls are scheduled at ``epoch + n * interval`` on a monotonic clock, so the time a
-    call takes never pushes later calls back, and no call starts before its slot. Calls
-    never overlap: there is one worker and it waits for each call to return.
+    Fixed-rate slots stay at ``epoch + n * interval``; calls never overlap or start
+    before their slot. ``on_missed`` is skip, coalesce or burst. Fixed delay waits after
+    each call; jitter adds a bounded random delay. Callback exceptions go to ``on_error``
+    or the logger; a failing handler stops the worker. ``waiter(seconds)`` returns True
+    to stop. See GUIDE for the complete option and error contracts.
 
-    ``on_missed`` decides what happens to slots that pass while a call runs: ``"skip"``
-    drops them, ``"coalesce"`` makes one late call for all of them, ``"burst"`` makes one
-    call per missed slot, back to back. ``mode="fixed_delay"`` waits ``interval`` after
-    each call ends instead. ``jitter`` delays each call by a random amount up to that many
-    seconds without moving the schedule.
-
-    An exception from ``fn`` never stops the timer: it goes to ``on_error``, or is logged
-    on the ``periodictimer`` logger when there is no handler. An exception raised by
-    ``on_error`` is logged and stops the timer.
-
-    ``clock`` and ``waiter`` are hooks for tests: ``waiter(seconds)`` blocks for up to
-    ``seconds`` and returns True when the timer should stop.
+    >>> timer = PeriodicTimer(1, lambda: timer.stop(), immediate=True)
+    >>> timer.start()
+    >>> timer.join(5)
+    True
+    >>> timer.calls
+    1
     """
 
     def __init__(
@@ -57,6 +53,7 @@ class PeriodicTimer(TimerBase):
     ) -> None:
         if inspect.iscoroutinefunction(fn):
             raise TypeError("fn is a coroutine function; use AsyncPeriodicTimer")
+        check_callable(clock, "clock")
         super().__init__(
             interval,
             fn,
@@ -79,13 +76,22 @@ class PeriodicTimer(TimerBase):
         self._failure: Exception | None = None
 
     def is_running(self) -> bool:
-        """True while the worker thread is alive."""
+        """True while the worker thread is alive.
+
+        >>> PeriodicTimer(1, lambda: None).is_running()
+        False
+        """
         return self._thread.is_alive()
 
     def start(self) -> None:
         """Anchor the schedule at the current clock value and start the worker thread.
 
         A timer starts once: starting it again, or after ``stop``, raises RuntimeError.
+
+        >>> timer = PeriodicTimer(1, lambda: None, waiter=lambda delay: True)
+        >>> timer.start()
+        >>> timer.join(5)
+        True
         """
         with self._lock:
             if self._schedule is not None:
@@ -100,6 +106,11 @@ class PeriodicTimer(TimerBase):
 
         A call already in progress runs to its end; ``join`` waits for it. Safe to call
         more than once, before ``start`` and from inside the callback.
+
+        >>> timer = PeriodicTimer(1, lambda: None)
+        >>> timer.stop()
+        >>> timer.is_running()
+        False
         """
         self._stop.set()
 
@@ -109,6 +120,9 @@ class PeriodicTimer(TimerBase):
         Returns True at once for a timer that never started. Re-raises an error that
         ended the worker (a failing ``clock`` or ``waiter``), and raises RuntimeError when
         called from the callback itself, which would wait forever.
+
+        >>> PeriodicTimer(1, lambda: None).join()
+        True
         """
         limit = check_timeout(timeout)
         if threading.current_thread() is self._thread:
@@ -149,7 +163,7 @@ class PeriodicTimer(TimerBase):
         assert schedule is not None
         while self._wait_until(schedule.due):
             keep_going = self._invoke()
-            schedule.fired(self._clock())
+            schedule.fired(self._clock)
             if not keep_going:
                 self._stop.set()
                 return

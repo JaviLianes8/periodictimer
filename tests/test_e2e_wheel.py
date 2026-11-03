@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import venv
 from pathlib import Path
 
 import pytest
@@ -85,11 +84,13 @@ print("e2e ok")
 
 def _run(*cmd: str | Path, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [str(c) for c in cmd], cwd=cwd, capture_output=True, text=True, check=False
+        [str(c) for c in cmd], cwd=cwd, capture_output=True, text=True, check=False, timeout=120
     )
 
 
 def test_installed_wheel_end_to_end(tmp_path: Path) -> None:
+    import venv
+
     dist = tmp_path / "dist"
     built = _run(sys.executable, "-m", "build", "--wheel", "--outdir", dist, ROOT)
     assert built.returncode == 0, built.stderr
@@ -99,6 +100,13 @@ def test_installed_wheel_end_to_end(tmp_path: Path) -> None:
     venv.create(env_dir, with_pip=True)
     bindir = env_dir / ("Scripts" if sys.platform == "win32" else "bin")
     python = bindir / "python"
+    if os.environ.get("PERIODICTIMER_E2E_PYPI") == "1":
+        previous = _run(python, "-m", "pip", "install", "-q", "periodictimer==0.2.0")
+        assert previous.returncode == 0, previous.stderr
+        baseline = _run(python, "-I", "-c", PROGRAM, cwd=tmp_path)
+        assert baseline.returncode == 0, baseline.stderr
+        version = _run(python, "-I", "-c", "import periodictimer; print(periodictimer.__version__)")
+        assert version.stdout.strip() == "0.2.0"
     installed = _run(python, "-m", "pip", "install", "-q", wheel)
     assert installed.returncode == 0, installed.stderr
 
@@ -108,3 +116,44 @@ def test_installed_wheel_end_to_end(tmp_path: Path) -> None:
     result = _run(python, "-I", "-c", PROGRAM, cwd=work)
     assert result.returncode == 0, result.stderr
     assert result.stdout.splitlines() == ["e2e ok"]
+    version = _run(python, "-I", "-c", "import periodictimer; print(periodictimer.__version__)")
+    assert version.stdout.strip() == "1.0.0"
+    entrypoints = _run(
+        python,
+        "-I",
+        "-c",
+        "import importlib.metadata as m; assert not m.distribution('periodictimer').entry_points",
+    )
+    assert entrypoints.returncode == 0, entrypoints.stderr
+    consumer = work / "consumer.py"
+    consumer.write_text(
+        "from periodictimer import PeriodicTimer, AsyncPeriodicTimer\n"
+        "def tick() -> None: pass\n"
+        "async def atick() -> None: pass\n"
+        "timer = PeriodicTimer(1, tick, on_missed='burst', daemon=False)\n"
+        "period: float = timer.interval\n"
+        "epoch: float | None = timer.epoch\n"
+        "calls: int = timer.calls + timer.missed\n"
+        "running: bool = timer.is_running()\n"
+        "joined: bool = timer.join(0)\n"
+        "async def consume() -> bool:\n"
+        "    async with AsyncPeriodicTimer(1, atick) as other:\n"
+        "        other.stop()\n"
+        "        await other.aclose()\n"
+        "        return await other.join()\n",
+        encoding="utf-8",
+    )
+    typed = _run(
+        sys.executable,
+        "-m",
+        "mypy",
+        "--strict",
+        "--no-incremental",
+        "--python-executable",
+        python,
+        "--cache-dir",
+        tmp_path / "mypy-cache",
+        consumer,
+        cwd=work,
+    )
+    assert typed.returncode == 0, typed.stdout + typed.stderr

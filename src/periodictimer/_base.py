@@ -5,17 +5,8 @@ from __future__ import annotations
 import inspect
 import random
 
-from ._options import (
-    Mode,
-    Policy,
-    check_callable,
-    check_flag,
-    check_interval,
-    check_jitter,
-    check_mode,
-    check_policy,
-    check_rng,
-)
+from ._numbers import check_flag, check_interval, check_jitter
+from ._options import Mode, Policy, check_callable, check_mode, check_policy, check_rng
 from ._report import ErrorHandler
 from ._schedule import Schedule
 
@@ -67,22 +58,42 @@ class TimerBase:
 
     @property
     def interval(self) -> float:
-        """The configured period in seconds."""
+        """The configured period in seconds.
+
+        >>> from periodictimer import PeriodicTimer
+        >>> PeriodicTimer(1, lambda: None).interval
+        1.0
+        """
         return self._interval
 
     @property
     def epoch(self) -> float | None:
-        """The clock value the schedule is anchored to, set by ``start``; None before."""
+        """The clock value the schedule is anchored to, set by ``start``; None before.
+
+        >>> from periodictimer import PeriodicTimer
+        >>> PeriodicTimer(1, lambda: None).epoch is None
+        True
+        """
         return None if self._schedule is None else self._schedule.epoch
 
     @property
     def calls(self) -> int:
-        """How many calls of ``fn`` have finished, including those that raised."""
+        """How many calls of ``fn`` have finished, including those that raised.
+
+        >>> from periodictimer import PeriodicTimer
+        >>> PeriodicTimer(1, lambda: None).calls
+        0
+        """
         return 0 if self._schedule is None else self._schedule.calls
 
     @property
     def missed(self) -> int:
-        """How many slots were dropped by the ``skip`` or ``coalesce`` policy."""
+        """How many slots were dropped by the ``skip`` or ``coalesce`` policy.
+
+        >>> from periodictimer import PeriodicTimer
+        >>> PeriodicTimer(1, lambda: None).missed
+        0
+        """
         return 0 if self._schedule is None else self._schedule.missed
 
     def is_running(self) -> bool:

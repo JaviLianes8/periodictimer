@@ -64,16 +64,16 @@ def test_a_clock_before_the_epoch_never_moves_the_schedule_back() -> None:
 def test_fired_counts_calls_and_missed_slots(policy: Policy, missed: int, due: float) -> None:
     schedule = _schedule(policy)
     assert schedule.due == 1.0
-    schedule.fired(4.5)
+    schedule.fired(lambda: 4.5)
     assert (schedule.calls, schedule.missed, schedule.due) == (1, missed, due)
 
 
 def test_fixed_delay_waits_one_interval_after_each_call_ends() -> None:
     schedule = _schedule(mode="fixed_delay", immediate=True)
     assert schedule.due == 0.0
-    schedule.fired(3.7)
+    schedule.fired(lambda: 3.7)
     assert schedule.due == 4.7
-    schedule.fired(4.9)
+    schedule.fired(lambda: 4.9)
     assert (schedule.due, schedule.missed, schedule.calls) == (5.9, 0, 2)
 
 
@@ -82,7 +82,7 @@ def test_jitter_delays_each_call_within_bounds_and_never_moves_the_slots() -> No
     offsets = []
     for slot in range(1, 500):
         offsets.append(schedule.due - slot)
-        schedule.fired(schedule.due)
+        schedule.fired(lambda: schedule.due)
     assert all(0.0 <= offset <= 0.4 for offset in offsets)
     assert max(offsets) > 0.3
     assert min(offsets) < 0.1
@@ -90,5 +90,5 @@ def test_jitter_delays_each_call_within_bounds_and_never_moves_the_slots() -> No
 
 def test_jitter_applies_after_a_fixed_delay_too() -> None:
     schedule = _schedule(mode="fixed_delay", jitter=0.5, uniform=lambda low, high: high)
-    schedule.fired(10.0)
+    schedule.fired(lambda: 10.0)
     assert schedule.due == 11.5

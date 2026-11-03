@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from functools import partial
 
 import pytest
 
@@ -59,7 +60,7 @@ def _real(
         start = max(now, schedule.due)
         starts.append((schedule.index, start))
         now = start + duration
-        schedule.fired(now)
+        schedule.fired(partial(float, now))
     assert schedule.calls == len(durations)
     return starts, schedule.missed
 
@@ -89,4 +90,4 @@ def test_call_index_is_first_slot_plus_calls_plus_missed(policy: Policy) -> None
         start = max(now, schedule.due)
         assert start >= schedule.index * 1.0
         now = start + rng.choice([0.0, 0.5, 3.25])
-        schedule.fired(now)
+        schedule.fired(partial(float, now))

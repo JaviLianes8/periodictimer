@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import random
 import sys
+from functools import partial
 from typing import Any
 
 import pytest
@@ -92,7 +93,7 @@ def test_a_subnormal_interval_never_overflows_the_scheduler(policy: Policy) -> N
         jitter=0.0,
         uniform=random.uniform,
     )
-    schedule.fired(1.0)
+    schedule.fired(lambda: 1.0)
     assert schedule.index == 2
 
 
@@ -116,7 +117,7 @@ def test_inexact_intervals_never_start_early_or_repeat_a_slot(interval: float) -
             last = schedule.index
             start = max(now, schedule.due)
             now = start + rng.choice([0.0, interval * 0.3, interval * 2.7, interval * 5])
-            schedule.fired(now)
+            schedule.fired(partial(float, now))
 
 
 def test_a_failing_clock_in_the_thread_timer_is_raised_by_join() -> None:
