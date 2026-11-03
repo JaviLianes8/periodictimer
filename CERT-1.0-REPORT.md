@@ -19,8 +19,9 @@ Progress:
 - [x] QA round 3 fixes: C4 and E-03 addressed; 508 tests pass
 - [x] QA round 4 fixes: E-04 addressed; 516 tests pass
 - [x] QA round 5 fixes: E-05 and E-06 addressed; 520 tests pass
-- [ ] Five QA lenses (item 19, separate stage)
-- [ ] Independent reviewer (item 16, separate stage)
+- [x] Round 6: one shared numeric conversion and its domain contracts; 1344 tests pass
+- [x] Five QA lenses (item 19): all five PASS
+- [x] Independent reviewer (item 16): PASS on every item
 - [x] PR #3 opened from `release/1.0.0` to `main`
 - [ ] Merge and publication (item 17, separate stage)
 
@@ -42,11 +43,11 @@ Progress:
 | 12. CHANGELOG | PASS | 1.0.0 dated 2026-11-01; all runtime changes listed |
 | 13. Metadata | PASS | 1.0.0, Production/Stable, Python classifiers, MIT, URLs, no runtime dependencies |
 | 14. Archives | PASS | Exact member lists, license and type marker; wheel rebuilt from sdist |
-| 15. Four gates | PASS | Each exits zero; QA round 5 suite 520 passed |
-| 16. Independent reviewer | PENDING | Separate stage |
-| 17. Merge and publication | PENDING | PR #3 open; merge and publication are separate |
-| 18. Mutation contracts | PASS | 18 preparation faults killed; lens e M17, N01, N09, rounds 3/4 M24 and round 5 N06/N08 detected |
-| 19. Five QA lenses | PENDING | Round 5 findings fixed; independent re-verification pending |
+| 15. Four gates | PASS | Each exits zero; round 6 suite 1344 passed with every opt-in enabled |
+| 16. Independent reviewer | PASS | Round 1 at `1b761ca`, every item scored PASS |
+| 17. Pull request and guard | PASS | PR #3 from `release/1.0.0`, trace guard clean; merge and publication by the release stage |
+| 18. Mutation contracts | PASS | 18 preparation faults killed; lens e M17, N01, N09, rounds 3/4 M24, round 5 N06/N08 and all 40 round 6 probes detected |
+| 19. Five QA lenses | PASS | Lenses a, b, c, d and e all PASS; table below |
 
 ## API and behavior
 
@@ -378,8 +379,124 @@ passed for 38 files. Pytest used a 300-second per-test timeout and scratch baset
 with wheel/archive checks, installed-wheel typing, the real 0.2.0 upgrade and fetched
 reference tests enabled. The interpreter matrix was not repeated in this fix round.
 
+## Round 6: shared numeric conversion
+
+Commits: `4a8dfc87ed8cf5d3812c492210debfb51e2b47f1`
+(`route every timing argument through one numeric conversion and pin its whole domain`) and
+`1b761caa95c4a35e0bf6f26e8cbfc7bec581b46a`
+(`pin failure routing, exact error messages and slot selection against oracles`).
+
+The interval, jitter and join timeout checks, previously split between `_options.py` and
+`_timeout.py`, now share one conversion in `_numbers.py`; each option then applies only its
+own range rule. The flag checks for `immediate` and `daemon` moved to the same module.
+Observable differences are listed under Changed in CHANGELOG and described in GUIDE:
+overflowing values become an infinity of their sign for all three options, a
+`BaseException` that is not an `Exception` raised during the sign check propagates, a zero
+or negative timeout reaches the blocking call as `0.0`, and the messages of the three
+options are unified. Exception classes, public signatures and defaults are unchanged.
+
+New contracts pin the whole numeric domain of each option (types, conversion failures,
+NaN, infinities, overflow, subnormals, exact range edges), the boolean flags, the exact
+text of every validation message, the routing of callback, hook and clock failures, and
+skip, coalesce and burst slot selection against an independent slot oracle. The reviewer
+ran the four gates at `1b761ca`: `ruff format --check .` (55 files), `ruff check .`,
+`mypy --strict src` (9 modules) and `pytest` (1336 passed, 8 skipped by default; 1344
+passed with the wheel, PyPI upgrade and fetched-reference tests enabled, `--timeout=300`).
+`mypy --strict src tests` passed for 48 files. The reviewer's interpreter run at this
+commit passed on 3.10, 3.11, 3.12, 3.13, 3.14 and free-threaded 3.14; 3.13t and 3.15 were
+not available on that machine.
+
+Lens e round 6 swept the changed code with its own mutations, each applied alone and run
+against the full suite with `pytest -x`. All 40 were detected (two re-checks of earlier
+findings plus 38 new probes); none survived and none was claimed equivalent.
+
+| ID | Mutation | Result | Detecting contract |
+| --- | --- | --- | --- |
+| R1-E05 | positive-infinity check widened to any infinity (earlier E-05) | killed | `tests/test_contract_v1.py::test_thread_join_normalizes_an_overflowing_negative_timeout` |
+| R2-E06 | fractional timeout truncated (earlier E-06) | killed | `tests/test_join_fractional_contract.py::test_thread_fractional_join_waits_for_active_callback` |
+| M01 | bool accepted | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M02 | Decimal dropped from classification | killed | `tests/test_numeric_domain_contract.py::test_interval_domain` |
+| M03 | classification hook error leaks | killed | `tests/test_numeric_classification_contract.py::test_numeric_classification_errors_are_bounded` |
+| M04 | wrong classification error type | killed | `tests/test_numeric_classification_contract.py::test_numeric_classification_errors_are_bounded` |
+| M05 | non-real accepted | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M06 | overflow always +inf | killed | `tests/test_contract_v1.py::test_thread_join_normalizes_an_overflowing_negative_timeout` |
+| M07 | conversion TypeError reported as ValueError | killed | `tests/test_hostile_contract.py::test_numeric_conversion_errors_are_bounded` |
+| M08 | conversion failure ValueError reported as TypeError | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M09 | conversion failure chained | killed | `tests/test_hostile_contract.py::test_numeric_conversion_errors_are_bounded` |
+| M10 | conversion TypeError chained | killed | `tests/test_hostile_contract.py::test_numeric_conversion_errors_are_bounded` |
+| M11 | NaN accepted | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M12 | NaN raises TypeError | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M13 | message loses name | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M14 | overflow sign swapped | killed | `tests/test_contract_v1.py::test_thread_join_normalizes_an_overflowing_negative_timeout` |
+| M15 | overflow sign-check failure becomes infinity | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M16 | infinite interval accepted | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M17 | zero interval accepted | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M18 | wrong interval error type | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M19 | zero jitter rejected | killed | `tests/test_acancel.py::test_an_outside_cancel_together_with_stop_still_cancels_the_task` |
+| M20 | jitter equal to the interval rejected | killed | `tests/test_acancel.py::test_an_outside_cancel_together_with_stop_still_cancels_the_task` |
+| M21 | negative jitter accepted | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M22 | None timeout polls | killed | `tests/test_docs.py::test_each_example_prints_its_output` |
+| M23 | negative timeout waits forever | killed | `tests/test_contract_v1.py::test_thread_join_normalizes_an_overflowing_negative_timeout` |
+| M24 | no TIMEOUT_MAX cap | killed | `tests/test_lifecycle.py::test_join_accepts_any_non_nan_timeout` |
+| M25 | timeout cap uses max instead of min | killed | `tests/test_atimer_lifecycle.py::test_stop_never_cancels_a_running_callback` |
+| M26 | negative timeout passed through | killed | `tests/test_join_negative_contract.py::test_thread_negative_join_polls_active_callback` |
+| M27 | flag accepts ints | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M28 | flag always True | killed | `tests/test_atimer.py::test_calls_land_exactly_on_the_slots` |
+| M29 | flag error raises ValueError | killed | `tests/test_error_message_contract.py::test_option_errors` |
+| M30 | class check uses isinstance instead of issubclass | killed | `tests/test_hostile_contract.py::test_option_classification_ignores_instance_class_properties` |
+| M31 | conversion truncates | killed | `tests/test_async_fairness.py::test_every_callback_yields_to_allow_stop` |
+| M32 | generic conversion except narrowed | killed | `tests/test_hostile_contract.py::test_numeric_conversion_errors_are_bounded` |
+| M33 | jitter checked against 1.0 | killed | `tests/test_docs.py::test_each_example_prints_its_output` |
+| M34 | daemon flag ignored | killed | `tests/test_error_message_contract.py::test_thread_option_errors` |
+| M35 | immediate flag inverted | killed | `tests/test_async_fairness.py::test_every_callback_yields_to_allow_stop` |
+| M36 | async join timeout unchecked | killed | `tests/test_error_message_contract.py::test_timeout_errors` |
+| M37 | thread join timeout unchecked | killed | `tests/test_contract_v1.py::test_thread_join_normalizes_an_overflowing_negative_timeout` |
+| M38 | overflow sign-check failure raises TypeError | killed | `tests/test_error_message_contract.py::test_option_errors` |
+
+## QA lenses
+
+Every finding from every lens was fixed and re-verified by the same lens until it passed.
+Report paths are relative to the certification scratch directory of the machine that ran them.
+Lenses a to d last ran before round 6; lens e and the independent reviewer ran on the
+final runtime at `1b761ca`.
+
+| Lens | Rounds | Final verdict | Report | Commit |
+| --- | --- | --- | --- | --- |
+| a. API and docs | 2 | PASS | `lens-a-r2/REPORT.md` | `0b22e79ce40f971ca019037c4ba8c6c854743c80` |
+| b. Correctness and ground truth | 2 | PASS | `lens-b-r2/REPORT.md` | `0b22e79ce40f971ca019037c4ba8c6c854743c80` |
+| c. Adversarial and robustness | 4 | PASS | `lens-c-r4/REPORT.md` | `4355ebc1fa37acbf0e872721c173965b493d3f59` |
+| d. Packaging and real e2e | 1 | PASS | `lens-d-r1/REPORT.md` | `41906152d32c29ab709311e273ef9a38d103267e` |
+| e. Contract strength | 6 | PASS | `lens-e-r6/REPORT.md` | `1b761caa95c4a35e0bf6f26e8cbfc7bec581b46a` |
+
+## Independent reviewer
+
+Round 1, verdict PASS, report `review-r1/REPORT.md`,
+at `1b761caa95c4a35e0bf6f26e8cbfc7bec581b46a`. The reviewer cloned the branch and ran
+every check itself.
+
+| Item | Result | Reviewer evidence |
+| --- | --- | --- |
+| 1. Stable API | PASS | Signatures of both classes and every public method identical between the PyPI 0.2.0 wheel and this commit; changes listed in CHANGELOG |
+| 2. Exact exports | PASS | `__all__` is the two timer classes, checked from the installed wheel; docs import only from the package |
+| 3. Executable docstrings | PASS | 31 doctest examples, 0 failures; README blocks executed by the docs test |
+| 4. Strict types | PASS | `mypy --strict` on src (9 files) and on src plus tests (48 files); `py.typed` installed |
+| 5. Typed, bounded errors | PASS | External consumer probe: short, option-named `ValueError` and `TypeError` |
+| 6. Complete contracts | PASS | 1344 tests covering lifecycle, grid, completion, failure routing, numeric domain and joins |
+| 7. Real ground truth | PASS | All five CPython v3.14.6 files re-fetched live; sizes and SHA-256 match the manifest |
+| 8. Installed wheel e2e | PASS | Fresh venv, PyPI 0.2.0 upgraded in place to the built wheel, isolated consumer drove both timers |
+| 9. Seeded properties | PASS | Seeded property, stress and hostile suites pass |
+| 10. Supported Python | PASS | Full suite on 3.10, 3.11, 3.12, 3.13, 3.14 and free-threaded 3.14; 3.13t and 3.15 not runnable there |
+| 11. README | PASS | `twine check --strict` on both archives; absolute links; problem, why, install, quick start |
+| 12. CHANGELOG | PASS | 1.0.0 dated 2026-11-01 with Stable, Fixed and Changed sections |
+| 13. Metadata | PASS | 1.0.0, Production/Stable, 3.10 to 3.14 classifiers, MIT, four project URLs, keywords, no dependencies |
+| 14. Archives | PASS | Wheel and sdist member lists inspected; no tests, reports, scratch or fetched content |
+| 15. Four gates | PASS | Each exits zero; 1344 passed with every opt-in enabled |
+| 16. Independent reviewer | PASS | This review |
+| 17. Pull request and guard | PASS | PR #3 open at the reviewed commit; merge and publication belong to the release stage |
+| 18. Mutation contracts | PASS | Report table complete; six further reviewer mutants all detected |
+| 19. Five QA lenses | PASS | All five reports exist and conclude PASS |
+
 ## Later stages
 
-QA lens re-verification and the independent reviewer are pending. Merge and publication
-are reserved for the release stage. No passing verdict is claimed for those stages here.
-The preparation changes are available in [PR #3](https://github.com/JaviLianes8/periodictimer/pull/3).
+Merge into `main` and publication to PyPI belong to the release stage. The certified
+changes are in [PR #3](https://github.com/JaviLianes8/periodictimer/pull/3).
