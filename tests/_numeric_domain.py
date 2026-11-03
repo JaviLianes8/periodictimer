@@ -8,95 +8,32 @@ of it: an exact float (possibly infinite) or the exception class it must raise.
 from __future__ import annotations
 
 import math
-import numbers
 import sys
 import threading
 from decimal import Decimal
 from fractions import Fraction
 from typing import Any
 
+from _numeric_values import (
+    Abort,
+    AbortingClass,
+    ClassLiar,
+    Dec,
+    Float,
+    Frac,
+    Huge,
+    IndexlessInt,
+    Int,
+    LyingFloat,
+    Real,
+    Truth,
+    Unhashable,
+    boom,
+)
+
 MAX = sys.float_info.max
 HALF_ULP_ABOVE_MAX = 2**1024 - 2**970  # the smallest integer that rounds to infinity
-MARKER = "private-marker"
 ABOVE_TIMEOUT_MAX = math.nextafter(threading.TIMEOUT_MAX, math.inf)
-
-
-class Abort(BaseException):
-    """Not an Exception: a validator must let it through untouched."""
-
-
-class Int(int):
-    pass
-
-
-class IndexlessInt(int):
-    def __index__(self) -> int:
-        raise RuntimeError(MARKER)
-
-
-class Float(float):
-    pass
-
-
-class LyingFloat(float):
-    def __float__(self) -> float:
-        return 2.5
-
-
-class Dec(Decimal):
-    pass
-
-
-class Frac(Fraction):
-    pass
-
-
-class LiarMeta(type):
-    def __hash__(cls) -> int:
-        raise RuntimeError(MARKER)
-
-
-class Unhashable(metaclass=LiarMeta):
-    pass
-
-
-class ClassLiar:
-    @property  # type: ignore[misc]
-    def __class__(self) -> type:
-        return float
-
-
-@numbers.Real.register
-class Real:
-    """A registered real whose conversion and sign come from its arguments."""
-
-    def __init__(self, convert: Any, below_zero: Any = None) -> None:
-        self.convert = convert
-        self.below_zero = below_zero
-
-    def __float__(self) -> float:
-        if isinstance(self.convert, BaseException):
-            raise self.convert
-        return self.convert  # type: ignore[no-any-return]
-
-    def __lt__(self, other: object) -> Any:
-        if isinstance(self.below_zero, BaseException):
-            raise self.below_zero
-        return self.below_zero
-
-
-class Truth:
-    def __init__(self, value: Any) -> None:
-        self.value = value
-
-    def __bool__(self) -> bool:
-        if isinstance(self.value, BaseException):
-            raise self.value
-        return bool(self.value)
-
-
-def boom(kind: type[BaseException]) -> BaseException:
-    return kind(MARKER + "x" * 100_000)
 
 
 ROWS: list[tuple[str, Any, Any]] = [
@@ -110,6 +47,7 @@ ROWS: list[tuple[str, Any, Any]] = [
     ("object", object(), TypeError),
     ("class-liar", ClassLiar(), TypeError),
     ("hash-raising-metaclass", Unhashable(), TypeError),
+    ("hash-aborting-metaclass", AbortingClass(), Abort),
     # ints and int subclasses
     ("zero", 0, 0.0),
     ("one", 1, 1.0),
@@ -180,4 +118,6 @@ ROWS: list[tuple[str, Any, Any]] = [
     ("overflow-sign-type-error", Real(OverflowError(), boom(TypeError)), ValueError),
     ("overflow-sign-bool-raises", Real(OverflowError(), Truth(boom(TypeError))), ValueError),
     ("overflow-sign-abort", Real(OverflowError(), Abort("stop")), Abort),
+    ("overflow-small-positive", Huge(0.5), math.inf),
+    ("overflow-small-negative", Huge(-0.5), -math.inf),
 ]

@@ -17,9 +17,9 @@ from fractions import Fraction
 from typing import Any
 
 import pytest
-from _numeric_domain import Dec, Float, Frac, Int
 from _numeric_probes import TIMERS, AsyncJoinProbe, ThreadJoinProbe, interval_of, jitter_draws, same
 from _numeric_rules import interval_rule, jitter_rule, timeout_rule
+from _numeric_values import Dec, Float, Frac, Int
 
 SEEDS = [3, 1729, 20261102]
 COUNT = 1000

@@ -13,7 +13,7 @@ import traceback
 from typing import Any
 
 import pytest
-from _numeric_domain import MARKER, ROWS, Abort
+from _numeric_domain import ROWS
 from _numeric_probes import (
     TIMERS,
     AsyncJoinProbe,
@@ -24,6 +24,7 @@ from _numeric_probes import (
     unstarted_join,
 )
 from _numeric_rules import interval_rule, jitter_rule, timeout_rule
+from _numeric_values import MARKER, Abort
 
 from periodictimer import PeriodicTimer
 

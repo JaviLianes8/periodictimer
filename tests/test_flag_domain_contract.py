@@ -14,8 +14,8 @@ from fractions import Fraction
 from typing import Any
 
 import pytest
-from _numeric_domain import MARKER, Int, Truth, boom
 from _numeric_probes import TIMERS, callback_for, first_events
+from _numeric_values import MARKER, Int, Truth, boom
 
 from periodictimer import PeriodicTimer
 
